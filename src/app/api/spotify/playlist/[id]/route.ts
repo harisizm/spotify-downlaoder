@@ -220,7 +220,10 @@ export async function GET(
               tracksUrl = data.next;
             }
 
-            return NextResponse.json({ playlist, tracks });
+            if (tracks.length > 0) {
+              return NextResponse.json({ playlist, tracks });
+            }
+            console.warn("Official API returned 0 tracks for playlist, falling back to public embed extraction...");
           }
         } else if (type === "album") {
           const albumRes = await fetch(`${SPOTIFY_API_BASE}/albums/${id}`, {
