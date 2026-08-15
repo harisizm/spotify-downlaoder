@@ -1,17 +1,20 @@
-# SpotDown — Spotify Playlist & Music Bulk Downloader
+# Pasooriizm — Spotify Playlist Audio Vault & Downloader
+*Crafted with Pakistani Music Passion & Developer Precision by **[harisizm](https://www.linkedin.com/in/harisizm/)***
 
-SpotDown is a modern, high-performance web tool designed to download Spotify playlists, albums, and tracks in high quality without song caps, paid subscriptions, or restrictive limits.
+Pasooriizm is a high-performance web tool designed to fetch and save Spotify playlists, albums, and tracks in studio-grade 320kbps audio without song limits or paid tiers.
 
 ---
 
-## ⚡ Key Features
+## ⚡ Key Features & Two-Stage Architecture
 
-- **Zero Configuration Required**: Paste any public Spotify playlist, album, or track URL and download immediately without requiring Spotify API keys or login.
-- **No Song Limit**: Full pagination support. Playlists with 127, 500, 1,000, or 5,000+ tracks are fully supported.
-- **High Quality & Pure Audio**: Choose bitrates from 128 kbps to 320 kbps in MP3, M4A (AAC), OPUS, or uncompressed lossless WAV (`pcm_s16le`, 0kB video).
-- **Parallel Pipeline**: Concurrent downloading (3 to 5 tracks at once) with live waveform animations, real-time status indicators, and live in-browser searching & filtering.
-- **Folder & Numbered Filenames**: Automatic clean track numbering (`01. Artist - Song.mp3`) with customizable folder & archive naming.
-- **Browser-Side ZIP Bundling**: Package downloaded files into an organized `.zip` file on demand directly in the browser via `client-zip`.
+1. **⚡ Stage 1: In-Browser Fetch & Transcode**:
+   - Streams audio from servers straight into browser memory with concurrent pipelines (3-5 simultaneous active streams).
+   - Real-time live status updates ("Cooking in 320kbps flavor", equalizer wave animations, bitrate counters).
+2. **💾 Stage 2: 1-Click ZIP Save to Storage**:
+   - Compiles and exports all tracks into an organized, numbered ZIP archive (`01. Artist - Title.mp3`) saved directly into your device's Downloads directory.
+3. **No 100-Song Caps**: Full pagination support for massive 500+, 1,000+, or 5,000+ song playlists.
+4. **Pure Studio Bitrates**: Choose 128 to 320 kbps in MP3, M4A (AAC), OPUS, or uncompressed lossless WAV (`pcm_s16le`, pure audio).
+5. **Authentic Pakistani Hits & Global Charts Showcase**: Instant 1-click sampler with drag-to-scroll and touch-swipe controls.
 - **Hybrid Architecture**: Fast Next.js frontend deployable for 100% free on Vercel with a lightweight Dockerized worker backend for Render or Railway.
 - **Spotify Design System**: Custom glassmorphism UI with vibrant green accents, dark mode styling, and smooth micro-animations.
 

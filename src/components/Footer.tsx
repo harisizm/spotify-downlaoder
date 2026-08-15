@@ -28,12 +28,12 @@ export default function Footer() {
         {/* Legal & Tech disclaimer */}
         <div className={styles.infoRow}>
           <p className={styles.legalText}>
-            SpotDown extracts Spotify metadata and transcodes high-quality audio without caps.
+            Pasooriizm extracts Spotify metadata and transcodes high-bitrate studio audio without caps.
             <br />
-            Built for personal backup &amp; listening. Not affiliated with Spotify AB.
+            1. <strong>Fetch</strong> streams lossless audio to your browser • 2. <strong>Save</strong> exports the organized ZIP directly to your device storage.
           </p>
           <p className={styles.copyright}>
-            © {new Date().getFullYear()} SpotDown • Studio Quality Music Downloader.
+            © {new Date().getFullYear()} Pasooriizm • Pakistani Music Passion Meets Developer Precision.
           </p>
         </div>
       </div>

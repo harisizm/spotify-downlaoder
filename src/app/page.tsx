@@ -58,19 +58,19 @@ export default function LandingPage() {
           <div className={styles.heroContent}>
             <div className={styles.badge}>
               <span className={styles.badgeDot} />
-              Free &amp; Open Source
+              Pakistani Passion • Developer Precision • by harisizm
             </div>
 
             <h1 className={styles.title}>
-              Download Your
+              Welcome to
               <br />
-              <span className={styles.titleGradient}>Spotify Playlists</span>
+              <span className={styles.titleGradient}>Pasooriizm</span>
             </h1>
 
             <p className={styles.subtitle}>
-              Unlimited songs • Up to 320kbps • MP3, M4A, OPUS, WAV
+              The ultimate Spotify audio vault. Unlimited tracks • Studio 320kbps • MP3, M4A, OPUS, WAV.
               <br />
-              No song limit, parallel downloads, completely free.
+              <strong>⚡ Fetch</strong> audio to browser, then <strong>💾 Save</strong> entire organized ZIPs directly to your device storage.
             </p>
 
             {/* URL Input */}
@@ -93,7 +93,7 @@ export default function LandingPage() {
                   id="spotify-url-input"
                 />
                 <SpotifyButton onClick={() => handleUrlSubmit()} size="md">
-                  Download
+                  Load Tracks
                 </SpotifyButton>
               </div>
               {urlError && <p className={styles.errorText}>{urlError}</p>}
@@ -130,7 +130,7 @@ export default function LandingPage() {
               </div>
               <h3 className={styles.featureTitle}>Unlimited Downloads</h3>
               <p className={styles.featureDesc}>
-                No 100-song cap. Download playlists with 500, 1000, or even 5000+ songs. We paginate through every single track.
+                No 100-song limit. Download massive playlists with 500, 1000, or 5000+ tracks. We paginate through every single track.
               </p>
             </div>
 
@@ -142,9 +142,9 @@ export default function LandingPage() {
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>High Quality Audio</h3>
+              <h3 className={styles.featureTitle}>Studio-Grade Bitrate</h3>
               <p className={styles.featureDesc}>
-                Choose your bitrate: 128, 192, 256, or 320 kbps. Pick your format: MP3, M4A, OPUS, or lossless WAV.
+                Choose 128, 192, 256, or crisp 320 kbps. Pick MP3, M4A, OPUS, or lossless WAV transcodes.
               </p>
             </div>
 
@@ -154,37 +154,37 @@ export default function LandingPage() {
                   <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>Lightning Fast</h3>
+              <h3 className={styles.featureTitle}>Lightning Pipeline</h3>
               <p className={styles.featureDesc}>
-                Parallel download pipeline processes 3 to 5 songs simultaneously. Audio streams directly to your browser with no waiting.
+                Parallel download engine streams 3 to 5 songs concurrently directly into your browser with live cooking status.
               </p>
             </div>
 
             <div className={styles.featureCard}>
               <div className={styles.featureIcon}>
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="2" y1="12" x2="22" y2="12" />
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>100% Free</h3>
+              <h3 className={styles.featureTitle}>1-Click ZIP Archiving</h3>
               <p className={styles.featureDesc}>
-                No paid tiers, no VPS required, no hidden costs. Deployed on free infrastructure. Open source forever.
+                Auto-numbers and tags every song (e.g. <code>01. Artist - Title.mp3</code>) and exports the whole collection straight to your device.
               </p>
             </div>
           </div>
         </section>
 
-        {/* How It Works Section */}
+        {/* How It Works Section: Explaining Fetch vs Save */}
         <section className={styles.howItWorks}>
-          <h2 className={styles.sectionTitle}>How It Works</h2>
+          <h2 className={styles.sectionTitle}>How the Pasooriizm Pipeline Works</h2>
           <div className={styles.steps}>
             <div className={styles.step}>
               <div className={styles.stepNumber}>1</div>
-              <h3 className={styles.stepTitle}>Paste Your Link</h3>
+              <h3 className={styles.stepTitle}>Paste Spotify Link</h3>
               <p className={styles.stepDesc}>
-                Copy any Spotify playlist, album, or track URL and paste it above.
+                Paste any playlist, album, or track URL to parse metadata in seconds.
               </p>
             </div>
             <div className={styles.stepConnector}>
@@ -194,9 +194,9 @@ export default function LandingPage() {
             </div>
             <div className={styles.step}>
               <div className={styles.stepNumber}>2</div>
-              <h3 className={styles.stepTitle}>Choose Quality</h3>
+              <h3 className={styles.stepTitle}>⚡ Fetch &amp; Stream</h3>
               <p className={styles.stepDesc}>
-                Select your preferred format and bitrate. Pick the songs you want.
+                Fetches high-bitrate audio stream into browser memory with live transcoding.
               </p>
             </div>
             <div className={styles.stepConnector}>
@@ -206,9 +206,9 @@ export default function LandingPage() {
             </div>
             <div className={styles.step}>
               <div className={styles.stepNumber}>3</div>
-              <h3 className={styles.stepTitle}>Download</h3>
+              <h3 className={styles.stepTitle}>💾 Save to Device (ZIP)</h3>
               <p className={styles.stepDesc}>
-                Hit download and watch the magic. Get individual files or a ZIP bundle.
+                Exports the entire organized playlist as a numbered ZIP file directly to your storage.
               </p>
             </div>
           </div>

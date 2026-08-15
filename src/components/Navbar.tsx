@@ -128,7 +128,7 @@ export default function Navbar() {
                 <path d="M9.5 13H14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
               <span className={styles.logoText}>
-                Spot<span className={styles.logoAccent}>Down</span>
+                Pasoori<span className={styles.logoAccent}>izm</span>
               </span>
             </Link>
           </div>

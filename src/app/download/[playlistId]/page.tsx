@@ -366,7 +366,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                   placeholder="Enter playlist folder / ZIP archive name"
                 />
                 <span className={styles.folderHint}>
-                  Numbered files (e.g. <code>01. Artist - Song.{format}</code>) saved directly to your device
+                  ⚡ <strong>Fetch</strong> streams audio to browser memory • 💾 <strong>Save</strong> exports organized ZIP (e.g. <code>01. Artist - Song.{format}</code>) to your device
                 </span>
               </div>
 
@@ -389,7 +389,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                               </svg>
                             }
                           >
-                            Save All {completedCount} Songs as ZIP (Ready)
+                            💾 Save All {completedCount} Songs to Device (ZIP)
                           </SpotifyButton>
 
                           <SpotifyButton
@@ -397,7 +397,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                             variant="secondary"
                             size="lg"
                           >
-                            🔄 Re-download / Update
+                            🔄 Re-fetch / Update
                           </SpotifyButton>
                         </>
                       ) : (
@@ -407,15 +407,13 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                             size="lg"
                             icon={
                               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                               </svg>
                             }
                           >
                             {completedCount > 0
-                              ? `Download Remaining ${totalSelected - completedCount} Songs`
-                              : `Download ${totalSelected} Songs (Save to Device)`}
+                              ? `⚡ Fetch Remaining ${totalSelected - completedCount} Songs`
+                              : `⚡ Fetch & Process ${totalSelected} Songs`}
                           </SpotifyButton>
 
                           {completedCount > 0 && (
@@ -431,7 +429,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                                 </svg>
                               }
                             >
-                              Save {completedCount} Done as ZIP
+                              💾 Save {completedCount} Done to Device
                             </SpotifyButton>
                           )}
                         </>
