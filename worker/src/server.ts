@@ -1,0 +1,71 @@
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import dotenv from "dotenv";
+import searchRoute from "./routes/search.js";
+import downloadRoute from "./routes/download.js";
+import batchRoute from "./routes/batch.js";
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
+  .split(",")
+  .map((origin) => origin.trim());
+
+// Security middleware
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+// CORS configuration
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes("*") || ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, true); // Permissive in dev
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+// Body parser
+app.use(express.json({ limit: "5mb" }));
+
+// Rate limiting (120 requests per minute)
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX || "120", 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests from this IP, please try again later." },
+});
+app.use("/api/", limiter);
+
+// Health check route
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
+// API Routes
+app.use("/api/search", searchRoute);
+app.use("/api/download", downloadRoute);
+app.use("/api/batch", batchRoute);
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`SpotDown worker backend listening on port ${PORT}`);
+});

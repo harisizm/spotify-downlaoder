@@ -1,0 +1,117 @@
+.wrapper {
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.percent {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--transition-base);
+}
+
+.complete {
+  color: var(--spotify-green);
+}
+
+/* Track */
+.track {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.sm { height: 4px; }
+.md { height: 6px; }
+.lg { height: 10px; }
+
+/* Fill */
+.fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-width: 2px;
+}
+
+.green {
+  background: var(--gradient-green);
+}
+
+.blue {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.orange {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.fillComplete {
+  box-shadow: 0 0 12px rgba(29, 185, 84, 0.4);
+}
+
+/* Animated shimmer */
+.animated {
+  background-size: 200% 100%;
+}
+
+.shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Stripe animation for active progress */
+.animated .fill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.1) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.1) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 20px 20px;
+  animation: progressStripe 0.6s linear infinite;
+}
+
+@keyframes progressStripe {
+  0% { background-position: 0 0; }
+  100% { background-position: 20px 0; }
+}
