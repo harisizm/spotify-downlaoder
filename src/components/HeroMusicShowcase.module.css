@@ -4,14 +4,17 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  overflow: hidden;
   position: relative;
 }
 
 .sectionHeader {
   text-align: center;
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
   padding: 0 var(--space-md);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .headerTag {
@@ -50,46 +53,80 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
   max-width: 580px;
-  margin: 0 auto;
+  margin: 0 auto var(--space-md);
 }
 
-/* Marquee Carousel Container */
+/* Control Navigation Row */
+.controlsRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
+}
+
+.scrollBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.scrollBtn:hover {
+  background: var(--spotify-green);
+  color: #000;
+  border-color: var(--spotify-green);
+  transform: scale(1.08);
+}
+
+.scrollBtn:active {
+  transform: scale(0.95);
+}
+
+.scrollHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Draggable & Touch-Scrollable Carousel Container */
 .carouselWrapper {
   width: 100%;
-  position: relative;
-  overflow: hidden;
-  padding: var(--space-lg) 0 var(--space-2xl);
-  /* Gradient masks for smooth fading edges */
-  mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    black 8%,
-    black 92%,
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    black 8%,
-    black 92%,
-    transparent 100%
-  );
+  max-width: var(--max-width);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--space-md) var(--space-md) var(--space-2xl);
+  cursor: grab;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Hide scrollbar Firefox */
 }
 
-.marqueeTrack {
+.carouselWrapper::-webkit-scrollbar {
+  display: none; /* Hide scrollbar Chrome/Safari */
+}
+
+.carouselWrapper:active {
+  cursor: grabbing;
+}
+
+.cardsRow {
   display: flex;
   gap: var(--space-lg);
   width: max-content;
-  animation: scrollMarquee 38s linear infinite;
-}
-
-.carouselWrapper:hover .marqueeTrack {
-  animation-play-state: paused;
+  padding: 0 var(--space-xs);
 }
 
 /* Individual Music Card */
 .musicCard {
-  width: 280px;
+  width: 270px;
   flex-shrink: 0;
   position: relative;
   background: rgba(24, 24, 24, 0.85);
@@ -117,17 +154,17 @@
 /* Vinyl Disc Slide-Out Animation */
 .vinylContainer {
   position: absolute;
-  top: 18px;
-  right: 18px;
-  width: 90px;
-  height: 90px;
+  top: 16px;
+  right: 16px;
+  width: 85px;
+  height: 85px;
   z-index: 1;
   pointer-events: none;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .musicCard:hover .vinylContainer {
-  transform: translateX(30px) rotate(120deg);
+  transform: translateX(28px) rotate(120deg);
 }
 
 .vinylDisc {
@@ -146,22 +183,22 @@
 
 .vinylGrooves {
   position: absolute;
-  inset: 10px;
+  inset: 8px;
   border-radius: 50%;
   border: 1px dashed rgba(255, 255, 255, 0.12);
 }
 
 .vinylCenter {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 2px solid rgba(0, 0, 0, 0.5);
 }
 
-/* Card Cover */
+/* Card Cover Artwork */
 .cardCover {
   width: 100%;
-  height: 140px;
+  height: 145px;
   border-radius: var(--radius-md);
   position: relative;
   z-index: 2;
@@ -173,10 +210,31 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
+.coverImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.musicCard:hover .coverImage {
+  transform: scale(1.08);
+}
+
+.coverOverlayGradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.7) 100%);
+}
+
 .genreBadge {
+  position: relative;
+  z-index: 3;
   padding: 3px 8px;
   border-radius: var(--radius-xs);
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
   font-size: 10px;
   font-weight: 600;
@@ -186,10 +244,10 @@
 
 .coverPlayOverlay {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
-  width: 38px;
-  height: 38px;
+  bottom: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: var(--spotify-green);
   display: flex;
@@ -199,6 +257,7 @@
   opacity: 0;
   transform: translateY(8px) scale(0.9);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 3;
 }
 
 .musicCard:hover .coverPlayOverlay {
@@ -213,16 +272,17 @@
 /* Equalizer Bars */
 .equalizer {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
+  bottom: 10px;
+  left: 10px;
   display: flex;
   align-items: flex-end;
   gap: 3px;
   height: 16px;
   padding: 3px 6px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(6px);
   border-radius: var(--radius-xs);
+  z-index: 3;
 }
 
 .eqBar {
@@ -256,7 +316,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 190px;
+  max-width: 180px;
 }
 
 .trackDuration {
@@ -303,15 +363,6 @@
 }
 
 /* Keyframe Animations */
-@keyframes scrollMarquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
 @keyframes rotateVinyl {
   from {
     transform: rotate(0deg);
@@ -335,6 +386,6 @@
     font-size: var(--text-xl);
   }
   .musicCard {
-    width: 240px;
+    width: 230px;
   }
 }
