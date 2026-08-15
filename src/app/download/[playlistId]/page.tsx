@@ -8,6 +8,7 @@ import PlaylistHeader from "@/components/PlaylistHeader";
 import QualitySelector from "@/components/QualitySelector";
 import TrackRow from "@/components/TrackRow";
 import ProgressBar from "@/components/ProgressBar";
+import LiveDownloadProgress from "@/components/LiveDownloadProgress";
 import SpotifyButton from "@/components/SpotifyButton";
 import {
   getPlaylistInfo,
@@ -424,18 +425,19 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                 </div>
               </div>
 
-              {/* Global Progress */}
-              {isRunning && (
-                <div className={styles.globalProgress}>
-                  <ProgressBar
-                    value={overallProgress}
-                    label={`${completedCount} of ${totalSelected} songs completed${
-                      failedCount > 0 ? ` (${failedCount} failed)` : ""
-                    }`}
-                    size="md"
-                  />
-                </div>
-              )}
+              {/* Live Interactive Download Visualizer */}
+              <LiveDownloadProgress
+                isRunning={isRunning}
+                isPaused={isPaused}
+                completedCount={completedCount}
+                totalSelected={totalSelected}
+                failedCount={failedCount}
+                format={format}
+                quality={quality}
+                tracks={queueTracks}
+                onPauseToggle={handlePause}
+                onCancel={handleCancel}
+              />
 
               {/* Quality & Format Selector */}
               <div className={styles.qualitySection}>
