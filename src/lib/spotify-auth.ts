@@ -10,8 +10,13 @@ const SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize";
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || "";
-const REDIRECT_URI =
-  process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || "http://localhost:3000/callback";
+
+export function getRedirectUri(): string {
+  if (typeof window !== "undefined") {
+    return process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || `${window.location.origin}/callback`;
+  }
+  return process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || "http://localhost:3000/callback";
+}
 
 const SCOPES = [
   "playlist-read-private",
@@ -97,10 +102,12 @@ export async function initiateSpotifyAuth(): Promise<void> {
   // Store the verifier so we can use it in the callback
   localStorage.setItem("spotify_code_verifier", codeVerifier);
 
+  const redirectUri = getRedirectUri();
+
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: "code",
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri,
     scope: SCOPES,
     code_challenge_method: "S256",
     code_challenge: codeChallenge,
@@ -122,13 +129,15 @@ export async function exchangeCodeForTokens(
     throw new Error("No code verifier found. Please restart the auth flow.");
   }
 
+  const redirectUri = getRedirectUri();
+
   const response = await fetch("/api/spotify/token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       code,
       code_verifier: codeVerifier,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri,
     }),
   });
 
