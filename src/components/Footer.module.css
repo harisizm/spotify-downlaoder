@@ -73,13 +73,13 @@
   color: var(--spotify-green);
 }
 
-.githubIcon {
-  color: var(--text-secondary);
+.linkedinIcon {
+  color: #0a66c2;
   transition: color var(--transition-fast);
 }
 
-.authorLink:hover .githubIcon {
-  color: var(--spotify-green);
+.authorLink:hover .linkedinIcon {
+  color: #70b5f9;
 }
 
 .infoRow {
