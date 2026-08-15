@@ -53,6 +53,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
   const [queueState, setQueueState] = useState<Partial<QueueState>>({});
   const [format, setFormat] = useState<AudioFormat>("mp3");
   const [quality, setQuality] = useState<AudioQuality>("320");
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
 
   const queue = getDownloadQueue();
 
@@ -83,20 +84,19 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
           const res = await fetch(`/api/spotify/playlist/${playlistId}?type=${type}`);
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.error || "Failed to fetch Spotify content. It may be private.");
+            throw new Error(data.error || "Failed to load Spotify metadata");
           }
           const data = await res.json();
           setPlaylist(data.playlist);
-          setFolderName(data.playlist?.name || "Spotify Playlist");
-          setLoadingPlaylist(false);
           setTracks(data.tracks);
+          setFolderName(data.playlist.name || "Spotify Playlist");
+          setIsLimited(data.isEmbedLimited || false);
+          setLoadingPlaylist(false);
           setLoadingTracks(false);
           queue.setTracks(data.tracks);
-          if (data.isEmbedLimited) {
-            setIsLimited(true);
-          }
         }
       } catch (err) {
+        console.error("Fetch data error:", err);
         setError(
           err instanceof Error ? err.message : "Failed to load playlist"
         );
@@ -116,7 +116,10 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
         setQueueState(queue.getState());
       }
       if (event.type === "all-complete") {
-        // Queue completed
+        const state = queue.getState();
+        if (state.completedCount > 0) {
+          setShowCompletionModal(true);
+        }
       }
     });
 
@@ -159,16 +162,44 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
   const handleSelectAll = () => {
     queue.selectAll();
     setQueueTracks([...queue.getState().tracks]);
+    setQueueState(queue.getState());
   };
 
   const handleDeselectAll = () => {
     queue.deselectAll();
     setQueueTracks([...queue.getState().tracks]);
+    setQueueState(queue.getState());
+  };
+
+  const handleSelectFiltered = () => {
+    filteredTracks.forEach((t) => {
+      if (!t.selected) queue.toggleTrackSelection(t.id);
+    });
+    setQueueTracks([...queue.getState().tracks]);
+    setQueueState(queue.getState());
+  };
+
+  const handleDeselectFiltered = () => {
+    filteredTracks.forEach((t) => {
+      if (t.selected) queue.toggleTrackSelection(t.id);
+    });
+    setQueueTracks([...queue.getState().tracks]);
+    setQueueState(queue.getState());
+  };
+
+  const handleDownloadFiltered = () => {
+    filteredTracks.forEach((t) => {
+      if (!t.selected) queue.toggleTrackSelection(t.id);
+    });
+    setQueueTracks([...queue.getState().tracks]);
+    setQueueState(queue.getState());
+    queue.start();
   };
 
   const handleToggleSelect = (id: string) => {
     queue.toggleTrackSelection(id);
     setQueueTracks([...queue.getState().tracks]);
+    setQueueState(queue.getState());
   };
 
   const handleRetry = (id: string) => {
@@ -344,35 +375,66 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                 <div className={styles.controlsLeft}>
                   {!isRunning ? (
                     <>
-                      <SpotifyButton
-                        onClick={handleStartDownload}
-                        size="lg"
-                        icon={
-                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                          </svg>
-                        }
-                      >
-                        Download {totalSelected} Songs (Save to Device)
-                      </SpotifyButton>
+                      {/* If all selected are already downloaded, make Save All as ZIP the primary CTA */}
+                      {completedCount > 0 && completedCount === totalSelected ? (
+                        <>
+                          <SpotifyButton
+                            onClick={handleSaveZip}
+                            size="lg"
+                            icon={
+                              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                              </svg>
+                            }
+                          >
+                            Save All {completedCount} Songs as ZIP (Ready)
+                          </SpotifyButton>
 
-                      {completedCount > 0 && (
-                        <SpotifyButton
-                          onClick={handleSaveZip}
-                          variant="secondary"
-                          size="lg"
-                          icon={
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                              <line x1="12" y1="22.08" x2="12" y2="12" />
-                            </svg>
-                          }
-                        >
-                          Save Entire Playlist as ZIP ({completedCount})
-                        </SpotifyButton>
+                          <SpotifyButton
+                            onClick={handleStartDownload}
+                            variant="secondary"
+                            size="lg"
+                          >
+                            🔄 Re-download / Update
+                          </SpotifyButton>
+                        </>
+                      ) : (
+                        <>
+                          <SpotifyButton
+                            onClick={handleStartDownload}
+                            size="lg"
+                            icon={
+                              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                              </svg>
+                            }
+                          >
+                            {completedCount > 0
+                              ? `Download Remaining ${totalSelected - completedCount} Songs`
+                              : `Download ${totalSelected} Songs (Save to Device)`}
+                          </SpotifyButton>
+
+                          {completedCount > 0 && (
+                            <SpotifyButton
+                              onClick={handleSaveZip}
+                              variant="secondary"
+                              size="lg"
+                              icon={
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                                </svg>
+                              }
+                            >
+                              Save {completedCount} Done as ZIP
+                            </SpotifyButton>
+                          )}
+                        </>
                       )}
 
                       {failedCount > 0 && (
@@ -515,9 +577,32 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                     )}
                   </div>
 
-                  <span className={styles.filteredCountText}>
-                    Showing {filteredTracks.length} of {allCount} songs
-                  </span>
+                  {/* Filter Action Buttons Panel */}
+                  <div className={styles.filterActionBar}>
+                    <button
+                      className={styles.filterActionBtn}
+                      onClick={handleSelectFiltered}
+                      title="Select all currently visible filtered songs"
+                    >
+                      ✓ Select Filtered ({filteredTracks.length})
+                    </button>
+                    <button
+                      className={styles.filterActionBtn}
+                      onClick={handleDeselectFiltered}
+                      title="Deselect all currently visible songs"
+                    >
+                      ✕ Deselect Filtered
+                    </button>
+                    {filteredTracks.some((t) => t.status !== "done") && (
+                      <button
+                        className={`${styles.filterActionBtn} ${styles.filterActionBtnHighlight}`}
+                        onClick={handleDownloadFiltered}
+                        title="Download only the currently filtered songs"
+                      >
+                        ⬇️ Download Filtered ({filteredTracks.filter((t) => t.status !== "done").length})
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -570,6 +655,57 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
           )}
         </div>
       </main>
+
+      {/* Completion & Save All Modal Popup */}
+      {showCompletionModal && (
+        <div
+          className={styles.completionModalBackdrop}
+          onClick={() => setShowCompletionModal(false)}
+        >
+          <div
+            className={styles.completionModalCard}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.modalGlowAura} />
+            <div className={styles.modalPartyIconWrapper}>🎉</div>
+            <h3 className={styles.modalTitle}>All Downloads Ready!</h3>
+            <p className={styles.modalSubtitle}>
+              {completedCount} songs are converted in studio-grade{" "}
+              <strong>{format.toUpperCase()} ({quality}kbps)</strong>. Click below to bundle and save your organized ZIP archive directly to your device.
+            </p>
+
+            <div className={styles.modalFileSummary}>
+              <span>ZIP Archive:</span>
+              <code>
+                {folderName.trim() || playlist?.name || "Spotify_Playlist"}.zip
+              </code>
+            </div>
+
+            <button
+              className={styles.modalSaveBtnBig}
+              onClick={() => {
+                handleSaveZip();
+                setShowCompletionModal(false);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Save All {completedCount} Songs (ZIP Archive)
+            </button>
+
+            <button
+              className={styles.modalCloseBtn}
+              onClick={() => setShowCompletionModal(false)}
+            >
+              Dismiss &amp; View Song List
+            </button>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </>
   );
