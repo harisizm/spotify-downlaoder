@@ -366,7 +366,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                   placeholder="Enter playlist folder / ZIP archive name"
                 />
                 <span className={styles.folderHint}>
-                  ⚡ <strong>Fetch</strong> streams audio to browser memory • 💾 <strong>Save</strong> exports organized ZIP (e.g. <code>01. Artist - Song.{format}</code>) to your device
+                  Songs are saved as numbered files (e.g. <code>01. Artist - Song.{format}</code>) inside your ZIP download
                 </span>
               </div>
 
@@ -389,7 +389,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                               </svg>
                             }
                           >
-                            💾 Save All {completedCount} Songs to Device (ZIP)
+                            Save All {completedCount} Songs (ZIP)
                           </SpotifyButton>
 
                           <SpotifyButton
@@ -397,7 +397,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                             variant="secondary"
                             size="lg"
                           >
-                            🔄 Re-fetch / Update
+                            Download Again
                           </SpotifyButton>
                         </>
                       ) : (
@@ -407,13 +407,15 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                             size="lg"
                             icon={
                               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
                               </svg>
                             }
                           >
                             {completedCount > 0
-                              ? `⚡ Fetch Remaining ${totalSelected - completedCount} Songs`
-                              : `⚡ Fetch & Process ${totalSelected} Songs`}
+                              ? `Download Remaining ${totalSelected - completedCount} Songs`
+                              : `Download ${totalSelected} Songs`}
                           </SpotifyButton>
 
                           {completedCount > 0 && (
@@ -429,7 +431,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                                 </svg>
                               }
                             >
-                              💾 Save {completedCount} Done to Device
+                              Save {completedCount} Songs (ZIP)
                             </SpotifyButton>
                           )}
                         </>
@@ -666,14 +668,14 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
           >
             <div className={styles.modalGlowAura} />
             <div className={styles.modalPartyIconWrapper}>🎉</div>
-            <h3 className={styles.modalTitle}>All Downloads Ready!</h3>
+            <h3 className={styles.modalTitle}>Downloads Complete!</h3>
             <p className={styles.modalSubtitle}>
-              {completedCount} songs are converted in studio-grade{" "}
-              <strong>{format.toUpperCase()} ({quality}kbps)</strong>. Click below to bundle and save your organized ZIP archive directly to your device.
+              All {completedCount} songs have been downloaded in{" "}
+              <strong>{format.toUpperCase()} ({quality}kbps)</strong>. Click below to save the entire playlist as a single ZIP file on your device.
             </p>
 
             <div className={styles.modalFileSummary}>
-              <span>ZIP Archive:</span>
+              <span>ZIP File:</span>
               <code>
                 {folderName.trim() || playlist?.name || "Spotify_Playlist"}.zip
               </code>
@@ -691,14 +693,14 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Save All {completedCount} Songs (ZIP Archive)
+              Save All {completedCount} Songs (ZIP)
             </button>
 
             <button
               className={styles.modalCloseBtn}
               onClick={() => setShowCompletionModal(false)}
             >
-              Dismiss &amp; View Song List
+              View Song List
             </button>
           </div>
         </div>

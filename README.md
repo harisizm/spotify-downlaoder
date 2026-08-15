@@ -1,20 +1,17 @@
-# Pasooriizm — Spotify Playlist Audio Vault & Downloader
-*Crafted with Pakistani Music Passion & Developer Precision by **[harisizm](https://www.linkedin.com/in/harisizm/)***
+# Pasooriizm — Spotify Playlist Downloader
+*Built by **[harisizm](https://www.linkedin.com/in/harisizm/)***
 
-Pasooriizm is a high-performance web tool designed to fetch and save Spotify playlists, albums, and tracks in studio-grade 320kbps audio without song limits or paid tiers.
+Pasooriizm is a web application to download Spotify playlists, albums, and tracks in high quality (up to 320kbps MP3/WAV) without song limits.
 
 ---
 
-## ⚡ Key Features & Two-Stage Architecture
+## ⚡ Key Features
 
-1. **⚡ Stage 1: In-Browser Fetch & Transcode**:
-   - Streams audio from servers straight into browser memory with concurrent pipelines (3-5 simultaneous active streams).
-   - Real-time live status updates ("Cooking in 320kbps flavor", equalizer wave animations, bitrate counters).
-2. **💾 Stage 2: 1-Click ZIP Save to Storage**:
-   - Compiles and exports all tracks into an organized, numbered ZIP archive (`01. Artist - Title.mp3`) saved directly into your device's Downloads directory.
-3. **No 100-Song Caps**: Full pagination support for massive 500+, 1,000+, or 5,000+ song playlists.
-4. **Pure Studio Bitrates**: Choose 128 to 320 kbps in MP3, M4A (AAC), OPUS, or uncompressed lossless WAV (`pcm_s16le`, pure audio).
-5. **Authentic Pakistani Hits & Global Charts Showcase**: Instant 1-click sampler with drag-to-scroll and touch-swipe controls.
+- **Full Playlist Downloads**: No 100-song limit. Download playlists with hundreds or thousands of tracks with complete pagination.
+- **High Quality Audio**: Supports 128kbps, 192kbps, 256kbps, and 320kbps in MP3, M4A, OPUS, and WAV.
+- **Fast Batch Downloads**: Parallel downloader processes multiple songs simultaneously.
+- **Automatic ZIP Packaging**: Bundles your songs into a cleanly organized, numbered ZIP file on your device.
+- **Pakistani & Viral Charts Sampler**: 1-click sampler featuring top Pakistani and viral hits with swipe/drag navigation.
 - **Hybrid Architecture**: Fast Next.js frontend deployable for 100% free on Vercel with a lightweight Dockerized worker backend for Render or Railway.
 - **Spotify Design System**: Custom glassmorphism UI with vibrant green accents, dark mode styling, and smooth micro-animations.
 

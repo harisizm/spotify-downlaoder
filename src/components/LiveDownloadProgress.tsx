@@ -18,15 +18,13 @@ interface LiveDownloadProgressProps {
 }
 
 const FUN_STATUS_MESSAGES = [
-  "🚀 Igniting the download thrusters & tuning frequencies...",
-  "🔍 Sniffing out the purest studio-grade stream...",
-  "👨‍🍳 Cooking your songs in crispy 320kbps flavor...",
-  "🎛️ Transcoding raw audio & baking ID3 metadata...",
-  "⚡ Pouring lossless beats straight to your device...",
-  "📦 Polishing tracks and packing pure vibes...",
-  "🎧 Getting your jams headphone-ready...",
-  "🔥 Boiling the bitrate to maximum perfection...",
-  "🪄 Weaving audio frequencies into digital gold...",
+  "⚡ Preparing your downloads...",
+  "🔍 Finding best matching audio tracks...",
+  "⬇️ Downloading audio files...",
+  "🎛️ Converting audio and embedding album art...",
+  "📦 Organizing songs into files...",
+  "🎧 Getting your songs ready for listening...",
+  "💾 Finalizing your downloads...",
 ];
 
 export default function LiveDownloadProgress({
@@ -148,7 +146,7 @@ export default function LiveDownloadProgress({
             </span>
             {currentActiveTrack && !isPaused && isRunning && (
               <span className={styles.activeTrackPill}>
-                Now Cooking: <strong>{currentActiveTrack.spotifyTrack.name}</strong> by{" "}
+                Downloading: <strong>{currentActiveTrack.spotifyTrack.name}</strong> •{" "}
                 {currentActiveTrack.spotifyTrack.artists.map((a) => a.name).join(", ")}
               </span>
             )}

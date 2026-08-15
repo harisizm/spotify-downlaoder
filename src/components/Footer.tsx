@@ -9,7 +9,7 @@ export default function Footer() {
         <div className={styles.brandRow}>
           <div className={styles.developerBadge}>
             <span className={styles.pulseDot} />
-            <span className={styles.badgeText}>Designed &amp; Engineered for pure audio by</span>
+            <span className={styles.badgeText}>Designed &amp; Built by</span>
             <a
               href="https://www.linkedin.com/in/harisizm/"
               target="_blank"
@@ -28,12 +28,12 @@ export default function Footer() {
         {/* Legal & Tech disclaimer */}
         <div className={styles.infoRow}>
           <p className={styles.legalText}>
-            Pasooriizm extracts Spotify metadata and transcodes high-bitrate studio audio without caps.
+            Pasooriizm lets you download Spotify playlists and save them as organized ZIP files directly to your device for offline listening.
             <br />
-            1. <strong>Fetch</strong> streams lossless audio to your browser • 2. <strong>Save</strong> exports the organized ZIP directly to your device storage.
+            Built for personal use. Not affiliated with Spotify AB.
           </p>
           <p className={styles.copyright}>
-            © {new Date().getFullYear()} Pasooriizm • Pakistani Music Passion Meets Developer Precision.
+            © {new Date().getFullYear()} Pasooriizm by harisizm.
           </p>
         </div>
       </div>

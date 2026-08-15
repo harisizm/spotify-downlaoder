@@ -58,19 +58,19 @@ export default function LandingPage() {
           <div className={styles.heroContent}>
             <div className={styles.badge}>
               <span className={styles.badgeDot} />
-              Pakistani Passion • Developer Precision • by harisizm
+              Built by harisizm
             </div>
 
             <h1 className={styles.title}>
-              Welcome to
+              Download Spotify
               <br />
-              <span className={styles.titleGradient}>Pasooriizm</span>
+              <span className={styles.titleGradient}>Playlists with Pasooriizm</span>
             </h1>
 
             <p className={styles.subtitle}>
-              The ultimate Spotify audio vault. Unlimited tracks • Studio 320kbps • MP3, M4A, OPUS, WAV.
+              Download entire Spotify playlists, albums, and songs in 320kbps MP3, M4A, OPUS, or WAV.
               <br />
-              <strong>⚡ Fetch</strong> audio to browser, then <strong>💾 Save</strong> entire organized ZIPs directly to your device storage.
+              No song limits — save individual tracks or download the whole playlist as a ZIP.
             </p>
 
             {/* URL Input */}
@@ -93,7 +93,7 @@ export default function LandingPage() {
                   id="spotify-url-input"
                 />
                 <SpotifyButton onClick={() => handleUrlSubmit()} size="md">
-                  Load Tracks
+                  Download
                 </SpotifyButton>
               </div>
               {urlError && <p className={styles.errorText}>{urlError}</p>}
@@ -128,9 +128,9 @@ export default function LandingPage() {
                   <path d="m8 17 4 4 4-4" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>Unlimited Downloads</h3>
+              <h3 className={styles.featureTitle}>Full Playlists</h3>
               <p className={styles.featureDesc}>
-                No 100-song limit. Download massive playlists with 500, 1000, or 5000+ tracks. We paginate through every single track.
+                No 100-song limit. Download massive playlists with hundreds or thousands of songs with full track pagination.
               </p>
             </div>
 
@@ -142,9 +142,9 @@ export default function LandingPage() {
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>Studio-Grade Bitrate</h3>
+              <h3 className={styles.featureTitle}>High Quality Audio</h3>
               <p className={styles.featureDesc}>
-                Choose 128, 192, 256, or crisp 320 kbps. Pick MP3, M4A, OPUS, or lossless WAV transcodes.
+                Choose 128, 192, 256, or crisp 320 kbps in MP3, M4A, OPUS, or WAV format with full album artwork.
               </p>
             </div>
 
@@ -154,9 +154,9 @@ export default function LandingPage() {
                   <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>Lightning Pipeline</h3>
+              <h3 className={styles.featureTitle}>Fast Downloads</h3>
               <p className={styles.featureDesc}>
-                Parallel download engine streams 3 to 5 songs concurrently directly into your browser with live cooking status.
+                Downloads multiple songs at the same time with live progress so your playlists download quickly.
               </p>
             </div>
 
@@ -168,23 +168,23 @@ export default function LandingPage() {
                   <line x1="12" y1="22.08" x2="12" y2="12" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>1-Click ZIP Archiving</h3>
+              <h3 className={styles.featureTitle}>Save as ZIP</h3>
               <p className={styles.featureDesc}>
-                Auto-numbers and tags every song (e.g. <code>01. Artist - Title.mp3</code>) and exports the whole collection straight to your device.
+                All songs are automatically numbered (e.g. <code>01. Artist - Title.mp3</code>) and saved as a ZIP file on your device.
               </p>
             </div>
           </div>
         </section>
 
-        {/* How It Works Section: Explaining Fetch vs Save */}
+        {/* How It Works Section */}
         <section className={styles.howItWorks}>
-          <h2 className={styles.sectionTitle}>How the Pasooriizm Pipeline Works</h2>
+          <h2 className={styles.sectionTitle}>How It Works</h2>
           <div className={styles.steps}>
             <div className={styles.step}>
               <div className={styles.stepNumber}>1</div>
               <h3 className={styles.stepTitle}>Paste Spotify Link</h3>
               <p className={styles.stepDesc}>
-                Paste any playlist, album, or track URL to parse metadata in seconds.
+                Paste any Spotify playlist, album, or track URL above.
               </p>
             </div>
             <div className={styles.stepConnector}>
@@ -194,9 +194,9 @@ export default function LandingPage() {
             </div>
             <div className={styles.step}>
               <div className={styles.stepNumber}>2</div>
-              <h3 className={styles.stepTitle}>⚡ Fetch &amp; Stream</h3>
+              <h3 className={styles.stepTitle}>Choose Quality</h3>
               <p className={styles.stepDesc}>
-                Fetches high-bitrate audio stream into browser memory with live transcoding.
+                Select your preferred audio format (MP3, WAV) and bitrate (320kbps).
               </p>
             </div>
             <div className={styles.stepConnector}>
@@ -206,9 +206,9 @@ export default function LandingPage() {
             </div>
             <div className={styles.step}>
               <div className={styles.stepNumber}>3</div>
-              <h3 className={styles.stepTitle}>💾 Save to Device (ZIP)</h3>
+              <h3 className={styles.stepTitle}>Save to Device</h3>
               <p className={styles.stepDesc}>
-                Exports the entire organized playlist as a numbered ZIP file directly to your storage.
+                Download your songs and save the entire playlist as an organized ZIP file.
               </p>
             </div>
           </div>

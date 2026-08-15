@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pasooriizm | Spotify Playlist Vault & Downloader by harisizm",
+  title: "Pasooriizm | Spotify Playlist Downloader by harisizm",
   description:
-    "Fetch & save entire Spotify playlists in studio quality 320kbps MP3, M4A, OPUS or WAV. No song limit, parallel pipeline, engineered with passion by harisizm.",
+    "Download Spotify playlists, albums, and tracks in high quality 320kbps MP3, M4A, OPUS or WAV. No song limits, save all songs as a ZIP directly to your device.",
   keywords: [
     "pasooriizm",
     "harisizm",
@@ -13,12 +13,11 @@ export const metadata: Metadata = {
     "pakistani songs downloader",
     "pasoori downloader",
     "spotify to mp3",
-    "lossless audio",
   ],
   openGraph: {
-    title: "Pasooriizm | Spotify Playlist Vault by harisizm",
+    title: "Pasooriizm | Spotify Playlist Downloader by harisizm",
     description:
-      "Fetch & save entire Spotify playlists in studio-grade 320kbps audio. Free, no song caps.",
+      "Download Spotify playlists in high quality 320kbps audio. Free, no song limits.",
     type: "website",
   },
 };
