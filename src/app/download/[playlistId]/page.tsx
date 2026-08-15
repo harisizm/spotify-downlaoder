@@ -293,16 +293,27 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
           {/* Main content after loading */}
           {!loadingTracks && tracks.length > 0 && (
             <>
-              {isLimited && (
+              {isLimited && !loggedIn && (
                 <div className={styles.embedWarning}>
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <span>
-                    <strong>Spotify 100-Track Limit (Zero-Config Mode):</strong> Spotify&apos;s public preview only exposes up to 100 tracks. To load all 127+ songs, simply add your free Spotify Client ID &amp; Secret into <code>.env.local</code>.
-                  </span>
+                  <div className={styles.embedWarningLeft}>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <span>
+                      <strong>Spotify 100-Track Preview Limit:</strong> Public embed preview only loads up to 100 tracks. Connect your Spotify account to bypass the limit and load all {playlist?.tracks?.total || "127+"} songs.
+                    </span>
+                  </div>
+                  <button
+                    className={styles.loginBannerBtn}
+                    onClick={() => initiateSpotifyAuth()}
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.5 17.3c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.3-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9zm1.5-3.3c-.3.4-.8.5-1.2.3-3-1.8-7.5-2.4-11-1.3-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 4-1.2 9-.6 12.4 1.5.4.2.5.7.3 1zm.1-3.4C15.5 8.4 9.4 8.2 5.5 9.4c-.6.2-1.2-.2-1.4-.7-.2-.6.2-1.2.7-1.4 4.5-1.4 11.2-1.1 15.3 1.3.5.3.7 1 .4 1.5-.3.5-1 .7-1.4.4z"/>
+                    </svg>
+                    Connect with Spotify ({playlist?.tracks?.total || "127+"} Songs)
+                  </button>
                 </div>
               )}
 

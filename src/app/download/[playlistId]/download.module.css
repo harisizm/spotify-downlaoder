@@ -111,6 +111,7 @@
 .embedWarning {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
   margin-bottom: var(--space-lg);
@@ -120,15 +121,45 @@
   color: #fde047;
   font-size: var(--text-sm);
   animation: fadeIn 0.3s ease-out;
+  flex-wrap: wrap;
 }
 
-.embedWarning svg {
+.embedWarningLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex: 1;
+  min-width: 260px;
+}
+
+.embedWarningLeft svg {
   flex-shrink: 0;
   color: #eab308;
 }
 
 .embedWarning strong {
   color: #fff;
+}
+
+.loginBannerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: var(--spotify-green);
+  color: #000;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.loginBannerBtn:hover {
+  background: var(--spotify-green-hover);
+  transform: scale(1.03);
 }
 
 /* Filter & Search Bar */
