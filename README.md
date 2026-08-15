@@ -1,4 +1,4 @@
-# Pasooriizm — Spotify Playlist Downloader
+# Pasooriizm | Spotify Playlist Downloader
 *Built by **[harisizm](https://www.linkedin.com/in/harisizm/)***
 
 Pasooriizm is a web application to download Spotify playlists, albums, and tracks in high quality (up to 320kbps MP3/WAV) without song limits.

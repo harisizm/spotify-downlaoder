@@ -75,7 +75,7 @@
 .heroContent {
   position: relative;
   z-index: 1;
-  max-width: 720px;
+  max-width: 820px;
   text-align: center;
   animation: fadeInUp 0.8s ease-out;
 }
@@ -91,7 +91,7 @@
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
 }
 
 .badgeDot {
@@ -111,10 +111,10 @@
   font-family: var(--font-display);
   font-size: var(--text-6xl);
   font-weight: 900;
-  line-height: 1.05;
+  line-height: 1.08;
   letter-spacing: -0.04em;
   color: var(--text-primary);
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .titleGradient {
@@ -127,8 +127,11 @@
 .subtitle {
   font-size: var(--text-lg);
   color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: var(--space-2xl);
+  line-height: 1.5;
+  margin-bottom: var(--space-xl);
+  max-width: 580px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* URL Input */
@@ -165,137 +168,82 @@
 
 .input {
   flex: 1;
-  padding: 10px 8px;
-  font-size: var(--text-sm);
-  color: var(--text-primary);
   background: transparent;
   border: none;
   outline: none;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: inherit;
   min-width: 0;
 }
 
 .input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .errorText {
-  margin-top: var(--space-sm);
-  font-size: var(--text-xs);
   color: #f87171;
+  font-size: var(--text-xs);
+  margin-top: var(--space-sm);
   text-align: left;
   padding-left: var(--space-md);
 }
 
 /* Login CTA */
 .loginCta {
+  margin-top: var(--space-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-md);
-  margin-top: var(--space-lg);
+  flex-wrap: wrap;
 }
 
 .loginText {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
 
 .loginLink {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--text-sm);
+  gap: 6px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--spotify-green);
-  cursor: pointer;
-  background: none;
-  border: none;
-  transition: all var(--transition-fast);
-  padding: var(--space-sm) var(--space-md);
+  background: rgba(29, 185, 84, 0.1);
+  border: 1px solid rgba(29, 185, 84, 0.25);
   border-radius: var(--radius-full);
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .loginLink:hover {
-  background: var(--spotify-green-muted);
-  color: var(--spotify-green-light);
+  background: rgba(29, 185, 84, 0.2);
+  transform: translateY(-1px);
 }
 
-/* ===== FEATURES SECTION ===== */
-.features {
-  padding: var(--space-4xl) var(--space-lg);
-  max-width: var(--max-width);
-  margin: 0 auto;
-}
-
-.featuresGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-lg);
-}
-
-.featureCard {
-  padding: var(--space-xl);
-  border-radius: var(--radius-lg);
-  background: var(--gradient-card);
-  border: 1px solid var(--border-subtle);
-  transition: all var(--transition-base);
-  position: relative;
-  overflow: hidden;
-}
-
-.featureCard::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--gradient-green);
-  opacity: 0;
-  transition: opacity var(--transition-base);
-}
-
-.featureCard:hover {
-  transform: translateY(-4px);
-  border-color: var(--border-medium);
-  box-shadow: var(--shadow-lg);
-}
-
-.featureCard:hover::before {
-  opacity: 1;
-}
-
-.featureIcon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  background: var(--spotify-green-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--spotify-green);
-  margin-bottom: var(--space-md);
-}
-
-.featureTitle {
-  font-size: var(--text-base);
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: var(--space-sm);
-}
-
-.featureDesc {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-/* ===== HOW IT WORKS ===== */
-.howItWorks {
+/* ===== VISUAL FLOWCHART SECTION ===== */
+.flowchartSection {
   padding: var(--space-4xl) var(--space-lg);
   max-width: var(--max-width);
   margin: 0 auto;
   text-align: center;
+}
+
+.sectionHeader {
+  margin-bottom: var(--space-2xl);
+}
+
+.sectionTag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--spotify-green);
+  margin-bottom: var(--space-xs);
 }
 
 .sectionTitle {
@@ -303,89 +251,137 @@
   font-size: var(--text-3xl);
   font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: var(--space-3xl);
   letter-spacing: -0.02em;
 }
 
-.steps {
+.flowDiagram {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+  position: relative;
+}
+
+.flowCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl) var(--space-md);
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: var(--space-lg);
-}
-
-.step {
-  flex: 1;
-  max-width: 240px;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+  position: relative;
+  transition: all var(--transition-base);
 }
 
-.stepNumber {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--gradient-green);
-  color: #000;
-  font-size: var(--text-xl);
+.flowCard:hover {
+  transform: translateY(-4px);
+  border-color: rgba(29, 185, 84, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(29, 185, 84, 0.1);
+}
+
+.flowStepNum {
+  font-size: 10px;
   font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto var(--space-md);
-  box-shadow: var(--shadow-green);
-}
-
-.stepTitle {
-  font-size: var(--text-base);
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: var(--space-sm);
-}
-
-.stepDesc {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.stepConnector {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-tertiary);
-  margin-top: 12px;
-  flex-shrink: 0;
-}
-
-/* ===== FOOTER ===== */
-.footer {
-  padding: var(--space-3xl) var(--space-lg);
-  border-top: 1px solid var(--border-subtle);
-  margin-top: var(--space-4xl);
-}
-
-.footerContent {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  text-align: center;
-}
-
-.footerText {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  line-height: 1.8;
+  letter-spacing: 0.08em;
+  color: var(--spotify-green);
+  background: rgba(29, 185, 84, 0.1);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
   margin-bottom: var(--space-md);
 }
 
-.footerCopy {
+.flowIconWrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--spotify-green);
+  margin-bottom: var(--space-md);
+}
+
+.flowTitle {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.flowSub {
   font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+/* ===== VISUAL SPEC MATRIX ===== */
+.specsSection {
+  padding: var(--space-2xl) var(--space-lg) var(--space-4xl);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.specsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+}
+
+.specCard {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.specCard:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border-medium);
+}
+
+.specLabel {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-tertiary);
-  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.specValue {
+  font-size: var(--text-md);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.specTag {
+  font-size: var(--text-xs);
+  color: var(--spotify-green);
+  font-weight: 500;
+}
+
+/* Keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
-  .featuresGrid {
+  .flowDiagram,
+  .specsGrid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -410,17 +406,8 @@
     text-align: center;
   }
 
-  .featuresGrid {
+  .flowDiagram,
+  .specsGrid {
     grid-template-columns: 1fr;
-  }
-
-  .steps {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .stepConnector {
-    transform: rotate(90deg);
-    margin: 0;
   }
 }

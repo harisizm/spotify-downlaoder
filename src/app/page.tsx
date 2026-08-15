@@ -45,7 +45,7 @@ export default function LandingPage() {
     <>
       <Navbar />
       <main className={styles.main}>
-        {/* Hero Section */}
+        {/* Uncluttered Hero Section */}
         <section className={styles.hero}>
           {/* Animated background elements */}
           <div className={styles.bgOrbs}>
@@ -58,19 +58,17 @@ export default function LandingPage() {
           <div className={styles.heroContent}>
             <div className={styles.badge}>
               <span className={styles.badgeDot} />
-              Built by harisizm
+              Engineered by harisizm
             </div>
 
             <h1 className={styles.title}>
-              Download Spotify
+              Studio Quality
               <br />
-              <span className={styles.titleGradient}>Playlists with Pasooriizm</span>
+              <span className={styles.titleGradient}>Spotify Downloads</span>
             </h1>
 
             <p className={styles.subtitle}>
-              Download entire Spotify playlists, albums, and songs in 320kbps MP3, M4A, OPUS, or WAV.
-              <br />
-              No song limits — save individual tracks or download the whole playlist as a ZIP.
+              Fast, uncapped playlist downloads in 320kbps MP3 and lossless WAV.
             </p>
 
             {/* URL Input */}
@@ -82,7 +80,7 @@ export default function LandingPage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="Paste Spotify playlist, album, or track URL..."
+                  placeholder="Paste Spotify playlist, album, or track link..."
                   value={url}
                   onChange={(e) => {
                     setUrl(e.target.value);
@@ -117,107 +115,96 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className={styles.features}>
-          <div className={styles.featuresGrid}>
-            <div className={styles.featureCard}>
-              <div className={styles.featureIcon}>
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
-                  <path d="M12 12v9" />
-                  <path d="m8 17 4 4 4-4" />
+        {/* Visual Workflow Flowchart */}
+        <section className={styles.flowchartSection}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.sectionTag}>How It Works</span>
+            <h2 className={styles.sectionTitle}>Four Step Audio Pipeline</h2>
+          </div>
+
+          <div className={styles.flowDiagram}>
+            <div className={styles.flowCard}>
+              <span className={styles.flowStepNum}>STEP 01</span>
+              <div className={styles.flowIconWrapper}>
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>Full Playlists</h3>
-              <p className={styles.featureDesc}>
-                No 100-song limit. Download massive playlists with hundreds or thousands of songs with full track pagination.
-              </p>
+              <h3 className={styles.flowTitle}>Paste Link</h3>
+              <p className={styles.flowSub}>Playlists, Albums, Tracks</p>
             </div>
 
-            <div className={styles.featureCard}>
-              <div className={styles.featureIcon}>
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <div className={styles.flowCard}>
+              <span className={styles.flowStepNum}>STEP 02</span>
+              <div className={styles.flowIconWrapper}>
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                   <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>High Quality Audio</h3>
-              <p className={styles.featureDesc}>
-                Choose 128, 192, 256, or crisp 320 kbps in MP3, M4A, OPUS, or WAV format with full album artwork.
-              </p>
+              <h3 className={styles.flowTitle}>Choose Audio</h3>
+              <p className={styles.flowSub}>320kbps MP3 or WAV</p>
             </div>
 
-            <div className={styles.featureCard}>
-              <div className={styles.featureIcon}>
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <div className={styles.flowCard}>
+              <span className={styles.flowStepNum}>STEP 03</span>
+              <div className={styles.flowIconWrapper}>
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>Fast Downloads</h3>
-              <p className={styles.featureDesc}>
-                Downloads multiple songs at the same time with live progress so your playlists download quickly.
-              </p>
+              <h3 className={styles.flowTitle}>Batch Process</h3>
+              <p className={styles.flowSub}>5x Parallel Conversion</p>
             </div>
 
-            <div className={styles.featureCard}>
-              <div className={styles.featureIcon}>
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <div className={styles.flowCard}>
+              <span className={styles.flowStepNum}>STEP 04</span>
+              <div className={styles.flowIconWrapper}>
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                   <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
                   <line x1="12" y1="22.08" x2="12" y2="12" />
                 </svg>
               </div>
-              <h3 className={styles.featureTitle}>Save as ZIP</h3>
-              <p className={styles.featureDesc}>
-                All songs are automatically numbered (e.g. <code>01. Artist - Title.mp3</code>) and saved as a ZIP file on your device.
-              </p>
+              <h3 className={styles.flowTitle}>Export ZIP</h3>
+              <p className={styles.flowSub}>Numbered Local Files</p>
             </div>
           </div>
         </section>
 
-        {/* How It Works Section */}
-        <section className={styles.howItWorks}>
-          <h2 className={styles.sectionTitle}>How It Works</h2>
-          <div className={styles.steps}>
-            <div className={styles.step}>
-              <div className={styles.stepNumber}>1</div>
-              <h3 className={styles.stepTitle}>Paste Spotify Link</h3>
-              <p className={styles.stepDesc}>
-                Paste any Spotify playlist, album, or track URL above.
-              </p>
+        {/* Visual Spec Matrix Grid */}
+        <section className={styles.specsSection}>
+          <div className={styles.specsGrid}>
+            <div className={styles.specCard}>
+              <span className={styles.specLabel}>Bitrate Fidelity</span>
+              <span className={styles.specValue}>320 kbps &amp; WAV</span>
+              <span className={styles.specTag}>Pure Uncompressed Audio</span>
             </div>
-            <div className={styles.stepConnector}>
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
+
+            <div className={styles.specCard}>
+              <span className={styles.specLabel}>Playlist Capacity</span>
+              <span className={styles.specValue}>10,000+ Tracks</span>
+              <span className={styles.specTag}>Unrestricted Pagination</span>
             </div>
-            <div className={styles.step}>
-              <div className={styles.stepNumber}>2</div>
-              <h3 className={styles.stepTitle}>Choose Quality</h3>
-              <p className={styles.stepDesc}>
-                Select your preferred audio format (MP3, WAV) and bitrate (320kbps).
-              </p>
+
+            <div className={styles.specCard}>
+              <span className={styles.specLabel}>Engine Throughput</span>
+              <span className={styles.specValue}>Multi-Stream</span>
+              <span className={styles.specTag}>Parallel Track Transcoding</span>
             </div>
-            <div className={styles.stepConnector}>
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </div>
-            <div className={styles.step}>
-              <div className={styles.stepNumber}>3</div>
-              <h3 className={styles.stepTitle}>Save to Device</h3>
-              <p className={styles.stepDesc}>
-                Download your songs and save the entire playlist as an organized ZIP file.
-              </p>
+
+            <div className={styles.specCard}>
+              <span className={styles.specLabel}>Archive Packaging</span>
+              <span className={styles.specValue}>Numbered ZIP</span>
+              <span className={styles.specTag}>ID3 Tags &amp; Album Artwork</span>
             </div>
           </div>
         </section>
 
-        {/* Global Footer with Developed by harisizm Badge */}
         <Footer />
       </main>
     </>
   );
 }
-
