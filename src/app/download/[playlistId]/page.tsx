@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, use } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import PlaylistHeader from "@/components/PlaylistHeader";
 import QualitySelector from "@/components/QualitySelector";
 import TrackRow from "@/components/TrackRow";
@@ -567,6 +568,7 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
           )}
         </div>
       </main>
+      <Footer />
     </>
   );
 }

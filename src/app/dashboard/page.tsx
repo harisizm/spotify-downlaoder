@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import SpotifyButton from "@/components/SpotifyButton";
 import {
   isTokenValid,
@@ -181,6 +182,7 @@ export default function DashboardPage() {
           </section>
         </div>
       </main>
+      <Footer />
     </>
   );
 }
