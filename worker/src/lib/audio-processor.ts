@@ -70,12 +70,15 @@ export function streamAudioFromYouTube({
     res.setHeader("Content-Type", mimeTypes[format] || "audio/mpeg");
     res.setHeader("Accept-Ranges", "bytes");
 
-    // yt-dlp arguments: extract audio using multi-client to bypass 403 SABR restrictions on cloud IPs
+    // yt-dlp arguments: extract and transcode directly to stdout with multi-client fallback
     const ytdlpArgs = [
       "--extractor-args", "youtube:player_client=android,web,mweb,ios",
       "-f", "ba/140/251/18/best",
       "--no-playlist",
       "--no-warnings",
+      "-x",
+      "--audio-format", format === "wav" ? "wav" : format === "m4a" ? "m4a" : format === "opus" ? "opus" : "mp3",
+      "--audio-quality", format === "wav" ? "0" : `${quality}k`,
       "-o", "-",
       youtubeUrl,
     ];
@@ -91,40 +94,6 @@ export function streamAudioFromYouTube({
       return reject(spawnErr);
     }
 
-    // FFmpeg arguments: strictly strip video (-vn) and transcode to pure audio
-    const ffmpegArgs = ["-i", "pipe:0", "-vn"];
-
-    switch (format) {
-      case "m4a":
-        ffmpegArgs.push("-c:a", "aac", "-b:a", `${quality}k`, "-ar", "44100", "-f", "adts");
-        break;
-      case "opus":
-        ffmpegArgs.push("-c:a", "libopus", "-b:a", `${quality}k`, "-f", "opus");
-        break;
-      case "wav":
-        // Pure uncompressed 16-bit 44.1kHz stereo PCM lossless audio
-        ffmpegArgs.push("-c:a", "pcm_s16le", "-ar", "44100", "-ac", "2", "-f", "wav");
-        break;
-      case "mp3":
-      default:
-        ffmpegArgs.push("-c:a", "libmp3lame", "-b:a", `${quality}k`, "-ar", "44100", "-f", "mp3");
-        break;
-    }
-
-    ffmpegArgs.push("pipe:1");
-
-    let ffmpeg: any;
-    try {
-      ffmpeg = spawn(ffmpegExe, ffmpegArgs);
-    } catch (ffmpegSpawnErr) {
-      console.error("Failed to spawn FFmpeg:", ffmpegSpawnErr);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to initialize audio converter." });
-      }
-      if (!ytdlp.killed) ytdlp.kill("SIGTERM");
-      return reject(ffmpegSpawnErr);
-    }
-
     // Handle EPIPE and stream errors safely
     const ignorePipeError = (err: any) => {
       if (err && (err.code === "EPIPE" || err.code === "ECONNRESET" || err.code === "ERR_STREAM_DESTROYED")) {
@@ -134,37 +103,26 @@ export function streamAudioFromYouTube({
     };
 
     ytdlp.stdout.on("error", ignorePipeError);
-    ffmpeg.stdin.on("error", ignorePipeError);
-    ffmpeg.stdout.on("error", ignorePipeError);
     res.on("error", ignorePipeError);
 
-    ytdlp.stdout.pipe(ffmpeg.stdin);
-    ffmpeg.stdout.pipe(res);
+    ytdlp.stdout.pipe(res);
 
     const cleanup = () => {
       try {
         if (ytdlp && !ytdlp.killed) ytdlp.kill("SIGTERM");
-      } catch {}
-      try {
-        if (ffmpeg && !ffmpeg.killed) ffmpeg.kill("SIGTERM");
       } catch {}
     };
 
     res.on("close", cleanup);
     res.on("finish", cleanup);
 
-    ffmpeg.on("close", () => {
+    ytdlp.on("close", (code: number) => {
       cleanup();
       resolve();
     });
 
-    ffmpeg.on("error", (err: Error) => {
-      ignorePipeError(err);
-      cleanup();
-    });
-
     ytdlp.stderr.on("data", (_data: Buffer) => {
-      // Ignore normal progress logs from yt-dlp
+      // Progress output from yt-dlp
     });
 
     ytdlp.on("error", (err: Error) => {
