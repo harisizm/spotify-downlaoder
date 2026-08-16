@@ -308,62 +308,79 @@
   font-size: var(--text-base);
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .flowSub {
   font-size: var(--text-xs);
   color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 220px;
+  margin: 0 auto;
 }
 
-/* ===== VISUAL SPEC MATRIX ===== */
+/* ===== SPEC FEATURES (Under the Hood) ===== */
 .specsSection {
-  padding: var(--space-2xl) var(--space-lg) var(--space-4xl);
+  padding: var(--space-4xl) var(--space-lg) var(--space-4xl);
   max-width: var(--max-width);
   margin: 0 auto;
+  text-align: center;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .specsGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-md);
+  text-align: left;
+  margin-top: var(--space-2xl);
 }
 
 .specCard {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
+  background: rgba(29, 185, 84, 0.04);
+  border: 1px solid rgba(29, 185, 84, 0.12);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl) var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   transition: all var(--transition-fast);
 }
 
 .specCard:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--border-medium);
+  background: rgba(29, 185, 84, 0.08);
+  border-color: rgba(29, 185, 84, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.specEmoji {
+  font-size: 28px;
+  line-height: 1;
+  margin-bottom: 4px;
 }
 
 .specLabel {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--text-tertiary);
+  font-weight: 700;
+  color: var(--spotify-green);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 .specValue {
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .specTag {
   font-size: var(--text-xs);
-  color: var(--spotify-green);
-  font-weight: 500;
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.5;
+  font-style: italic;
 }
 
 /* Keyframes */

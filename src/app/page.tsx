@@ -115,28 +115,28 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Visual Workflow Flowchart */}
+        {/* How It Works — Clean numbered story, NOT features */}
         <section className={styles.flowchartSection}>
           <div className={styles.sectionHeader}>
             <span className={styles.sectionTag}>How It Works</span>
-            <h2 className={styles.sectionTitle}>Four Step Audio Pipeline</h2>
+            <h2 className={styles.sectionTitle}>Three clicks. Whole playlist. Done.</h2>
           </div>
 
           <div className={styles.flowDiagram}>
             <div className={styles.flowCard}>
-              <span className={styles.flowStepNum}>STEP 01</span>
+              <span className={styles.flowStepNum}>01</span>
               <div className={styles.flowIconWrapper}>
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                 </svg>
               </div>
-              <h3 className={styles.flowTitle}>Paste Link</h3>
-              <p className={styles.flowSub}>Playlists, Albums, Tracks</p>
+              <h3 className={styles.flowTitle}>Paste the Spotify link</h3>
+              <p className={styles.flowSub}>Any playlist, album, or single track. Just copy from Spotify and drop it in the box above.</p>
             </div>
 
             <div className={styles.flowCard}>
-              <span className={styles.flowStepNum}>STEP 02</span>
+              <span className={styles.flowStepNum}>02</span>
               <div className={styles.flowIconWrapper}>
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
@@ -144,61 +144,71 @@ export default function LandingPage() {
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                 </svg>
               </div>
-              <h3 className={styles.flowTitle}>Choose Audio</h3>
-              <p className={styles.flowSub}>320kbps MP3 or WAV</p>
+              <h3 className={styles.flowTitle}>Pick your format</h3>
+              <p className={styles.flowSub}>Choose 320kbps MP3 for streaming quality, or WAV if you're going full audiophile mode. No wrong answer.</p>
             </div>
 
             <div className={styles.flowCard}>
-              <span className={styles.flowStepNum}>STEP 03</span>
+              <span className={styles.flowStepNum}>03</span>
               <div className={styles.flowIconWrapper}>
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
               </div>
-              <h3 className={styles.flowTitle}>Batch Process</h3>
-              <p className={styles.flowSub}>5x Parallel Conversion</p>
+              <h3 className={styles.flowTitle}>Hit Download, then Save</h3>
+              <p className={styles.flowSub}>Songs download into your browser. When they're all ready, save the whole playlist as a neat, numbered ZIP on your device.</p>
             </div>
 
             <div className={styles.flowCard}>
-              <span className={styles.flowStepNum}>STEP 04</span>
+              <span className={styles.flowStepNum}>🎵</span>
               <div className={styles.flowIconWrapper}>
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
                 </svg>
               </div>
-              <h3 className={styles.flowTitle}>Export ZIP</h3>
-              <p className={styles.flowSub}>Numbered Local Files</p>
+              <h3 className={styles.flowTitle}>Listen forever</h3>
+              <p className={styles.flowSub}>Files live on your device. No app needed. No internet required. Your music, your way, always.</p>
             </div>
           </div>
         </section>
 
-        {/* Visual Spec Matrix Grid */}
+        {/* Under the Hood — Funny technical specs, clearly different vibe */}
         <section className={styles.specsSection}>
+          <div className={styles.sectionHeader}>
+            <span className={styles.sectionTag}>Under the Hood</span>
+            <h2 className={styles.sectionTitle}>Nerd stuff you'll want to brag about</h2>
+          </div>
           <div className={styles.specsGrid}>
             <div className={styles.specCard}>
-              <span className={styles.specLabel}>Bitrate Fidelity</span>
-              <span className={styles.specValue}>320 kbps &amp; WAV</span>
-              <span className={styles.specTag}>Pure Uncompressed Audio</span>
+              <span className={styles.specEmoji}>🔊</span>
+              <span className={styles.specLabel}>No Lossy Compression Drama</span>
+              <span className={styles.specValue}>320kbps MP3 + Lossless WAV</span>
+              <span className={styles.specTag}>Your ears deserve better than YouTube's 128kbps. We deliver.</span>
             </div>
 
             <div className={styles.specCard}>
-              <span className={styles.specLabel}>Playlist Capacity</span>
+              <span className={styles.specEmoji}>⚡</span>
+              <span className={styles.specLabel}>Parallel Download Engine</span>
+              <span className={styles.specValue}>5 Songs at Once</span>
+              <span className={styles.specTag}>While your friend's downloader sneezes on track 3, we're already at track 8.</span>
+            </div>
+
+            <div className={styles.specCard}>
+              <span className={styles.specEmoji}>♾️</span>
+              <span className={styles.specLabel}>Zero Track Limit</span>
               <span className={styles.specValue}>10,000+ Tracks</span>
-              <span className={styles.specTag}>Unrestricted Pagination</span>
+              <span className={styles.specTag}>That 4,000-song mega playlist? Fine. The entire Coke Studio archive? Also fine.</span>
             </div>
 
             <div className={styles.specCard}>
-              <span className={styles.specLabel}>Engine Throughput</span>
-              <span className={styles.specValue}>Multi-Stream</span>
-              <span className={styles.specTag}>Parallel Track Transcoding</span>
-            </div>
-
-            <div className={styles.specCard}>
-              <span className={styles.specLabel}>Archive Packaging</span>
-              <span className={styles.specValue}>Numbered ZIP</span>
-              <span className={styles.specTag}>ID3 Tags &amp; Album Artwork</span>
+              <span className={styles.specEmoji}>📦</span>
+              <span className={styles.specLabel}>Auto-Organized ZIP Archive</span>
+              <span className={styles.specValue}>Named + Numbered</span>
+              <span className={styles.specTag}><code>01. Atif Aslam - Aadat.mp3</code> — not a chaotic mess of unnamed files.</span>
             </div>
           </div>
         </section>

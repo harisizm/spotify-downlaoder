@@ -408,30 +408,39 @@ export class DownloadQueueManager {
       throw new Error(`Download failed: ${res.statusText}`);
     }
 
-    // Track download progress
+    // Read response stream
     const contentLength = res.headers.get("Content-Length");
+    let blob: Blob;
+
     if (!contentLength || !res.body) {
-      return res.blob();
+      blob = await res.blob();
+    } else {
+      const total = parseInt(contentLength, 10);
+      let loaded = 0;
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+
+        const downloadProgress = 30 + (loaded / total) * 60; // 30% to 90%
+        this.updateTrack(trackId, { progress: Math.round(downloadProgress) });
+      }
+
+      blob = new Blob(chunks as BlobPart[], {
+        type: this.state.format === "mp3" ? "audio/mpeg" : `audio/${this.state.format}`,
+      });
     }
 
-    const total = parseInt(contentLength, 10);
-    let loaded = 0;
-    const reader = res.body.getReader();
-    const chunks: Uint8Array[] = [];
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      loaded += value.length;
-
-      const downloadProgress = 30 + (loaded / total) * 60; // 30% to 90%
-      this.updateTrack(trackId, { progress: Math.round(downloadProgress) });
+    // Strict validation: audio files must be at least 20KB
+    if (!blob || blob.size < 20_000) {
+      throw new Error(`Audio download incomplete (${blob?.size || 0} bytes received). Retrying...`);
     }
 
-    return new Blob(chunks as BlobPart[], {
-      type: this.state.format === "mp3" ? "audio/mpeg" : `audio/${this.state.format}`,
-    });
+    return blob;
   }
 
   /* ---- File Download Helpers ---- */

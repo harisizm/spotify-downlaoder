@@ -64,10 +64,10 @@ export function streamAudioFromYouTube({
     res.setHeader("Content-Type", mimeTypes[format] || "audio/mpeg");
     res.setHeader("Accept-Ranges", "bytes");
 
-    // yt-dlp arguments: strictly extract best audio stream with node JS runtime
+    // yt-dlp arguments: extract audio using android player client to bypass 403 SABR restrictions
     const ytdlpArgs = [
-      "--js-runtimes", "node",
-      "-f", "ba/bestaudio/251/140",
+      "--extractor-args", "youtube:player_client=android",
+      "-f", "ba/140/251/18/best",
       "--no-playlist",
       "--no-warnings",
       "-o", "-",
