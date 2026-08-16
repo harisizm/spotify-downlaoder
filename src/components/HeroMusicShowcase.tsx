@@ -169,10 +169,10 @@ export default function HeroMusicShowcase({ onSelectTrack }: HeroMusicShowcasePr
       <div className={styles.sectionHeader}>
         <div className={styles.headerTag}>
           <span className={styles.tagDot} />
-          <span>TOP PAKISTANI &amp; VIRAL CHARTS</span>
+          <span>TRENDING NOW</span>
         </div>
         <h3 className={styles.sectionTitle}>
-          Instant 1-Click Samples • Touch &amp; Drag
+          TOP PAKISTANI &amp; VIRAL CHARTS this week
         </h3>
         <p className={styles.sectionSubtitle}>
           Swipe left/right or click any song below to instantly download in studio-grade audio.

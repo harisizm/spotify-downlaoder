@@ -1,10 +1,9 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { isTokenValid, clearTokens, getSpotifyProfile, initiateSpotifyAuth, type SpotifyUserProfile } from "@/lib/spotify-auth";
+import { isTokenValid, clearTokens, getSpotifyProfile, type SpotifyUserProfile } from "@/lib/spotify-auth";
 import { getDownloadQueue } from "@/lib/download-queue";
+import SpotifyConnectGameModal from "./SpotifyConnectGameModal";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
@@ -12,6 +11,7 @@ export default function Navbar() {
   const [user, setUser] = useState<SpotifyUserProfile | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
 
   // Active Download Protection Modal state
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -42,8 +42,11 @@ export default function Navbar() {
   }, []);
 
   const handleBack = () => {
-    const state = getDownloadQueue().getState();
-    if (state.isRunning) {
+    const queue = getDownloadQueue();
+    const state = queue.getState();
+    const isActivelyStreaming = state.isRunning && !state.isPaused && state.completedCount < (state.totalSelected || 0);
+
+    if (isActivelyStreaming) {
       setDownloadStats({
         completed: state.completedCount || 0,
         total: state.totalSelected || 0,
@@ -51,13 +54,20 @@ export default function Navbar() {
       setPendingNav("back");
       setShowWarningModal(true);
     } else {
-      router.back();
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        window.history.back();
+      } else {
+        router.push("/");
+      }
     }
   };
 
   const handleForward = () => {
-    const state = getDownloadQueue().getState();
-    if (state.isRunning) {
+    const queue = getDownloadQueue();
+    const state = queue.getState();
+    const isActivelyStreaming = state.isRunning && !state.isPaused && state.completedCount < (state.totalSelected || 0);
+
+    if (isActivelyStreaming) {
       setDownloadStats({
         completed: state.completedCount || 0,
         total: state.totalSelected || 0,
@@ -65,7 +75,9 @@ export default function Navbar() {
       setPendingNav("forward");
       setShowWarningModal(true);
     } else {
-      router.forward();
+      if (typeof window !== "undefined") {
+        window.history.forward();
+      }
     }
   };
 
@@ -73,9 +85,15 @@ export default function Navbar() {
     setShowWarningModal(false);
     getDownloadQueue().cancel();
     if (pendingNav === "back") {
-      router.back();
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        window.history.back();
+      } else {
+        router.push("/");
+      }
     } else if (pendingNav === "forward") {
-      router.forward();
+      if (typeof window !== "undefined") {
+        window.history.forward();
+      }
     }
     setPendingNav(null);
   };
@@ -190,7 +208,7 @@ export default function Navbar() {
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)" }}>
                 <button
                   className={styles.connectSpotifyBtn}
-                  onClick={() => initiateSpotifyAuth()}
+                  onClick={() => setShowConnectModal(true)}
                 >
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                     <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.5 17.3c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.3-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9zm1.5-3.3c-.3.4-.8.5-1.2.3-3-1.8-7.5-2.4-11-1.3-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 4-1.2 9-.6 12.4 1.5.4.2.5.7.3 1zm.1-3.4C15.5 8.4 9.4 8.2 5.5 9.4c-.6.2-1.2-.2-1.4-.7-.2-.6.2-1.2.7-1.4 4.5-1.4 11.2-1.1 15.3 1.3.5.3.7 1 .4 1.5-.3.5-1 .7-1.4.4z"/>
@@ -202,6 +220,12 @@ export default function Navbar() {
           </div>
         </div>
       </nav>
+
+      {/* Spotify Connect Coming Soon & Mini Game Modal */}
+      <SpotifyConnectGameModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+      />
 
       {/* Active Download Warning Modal */}
       {showWarningModal && (

@@ -119,20 +119,42 @@ export function streamAudioFromYouTube({
       return reject(ffmpegSpawnErr);
     }
 
+    // Handle EPIPE and stream errors safely
+    const ignorePipeError = (err: any) => {
+      if (err && (err.code === "EPIPE" || err.code === "ECONNRESET" || err.code === "ERR_STREAM_DESTROYED")) {
+        return;
+      }
+      if (err) console.warn("Audio stream pipe notice:", err.message || err);
+    };
+
+    ytdlp.stdout.on("error", ignorePipeError);
+    ffmpeg.stdin.on("error", ignorePipeError);
+    ffmpeg.stdout.on("error", ignorePipeError);
+    res.on("error", ignorePipeError);
+
     ytdlp.stdout.pipe(ffmpeg.stdin);
     ffmpeg.stdout.pipe(res);
 
-    res.on("close", () => {
-      if (!ytdlp.killed) ytdlp.kill("SIGTERM");
-      if (!ffmpeg.killed) ffmpeg.kill("SIGTERM");
-    });
+    const cleanup = () => {
+      try {
+        if (ytdlp && !ytdlp.killed) ytdlp.kill("SIGTERM");
+      } catch {}
+      try {
+        if (ffmpeg && !ffmpeg.killed) ffmpeg.kill("SIGTERM");
+      } catch {}
+    };
 
-    ffmpeg.on("close", (code: number) => {
+    res.on("close", cleanup);
+    res.on("finish", cleanup);
+
+    ffmpeg.on("close", () => {
+      cleanup();
       resolve();
     });
 
     ffmpeg.on("error", (err: Error) => {
-      console.error("FFmpeg error:", err);
+      ignorePipeError(err);
+      cleanup();
     });
 
     ytdlp.stderr.on("data", (_data: Buffer) => {
@@ -140,7 +162,8 @@ export function streamAudioFromYouTube({
     });
 
     ytdlp.on("error", (err: Error) => {
-      console.error("yt-dlp error:", err);
+      ignorePipeError(err);
+      cleanup();
       if (!res.headersSent) {
         res.status(500).json({ error: "Download process encountered an error." });
       }

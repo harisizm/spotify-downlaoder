@@ -66,6 +66,22 @@ app.use("/api/download", downloadRoute);
 app.use("/api/batch", batchRoute);
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`SpotDown worker backend listening on port ${PORT}`);
 });
+
+// Process safety: prevent pipe/socket disconnect errors from crashing worker
+process.on("uncaughtException", (err: any) => {
+  if (err && (err.code === "EPIPE" || err.code === "ECONNRESET" || err.code === "ERR_STREAM_DESTROYED")) {
+    return;
+  }
+  console.error("Worker uncaught exception:", err);
+});
+
+process.on("unhandledRejection", (reason: any) => {
+  if (reason && (reason.code === "EPIPE" || reason.code === "ECONNRESET")) {
+    return;
+  }
+  console.error("Worker unhandled rejection:", reason);
+});
+

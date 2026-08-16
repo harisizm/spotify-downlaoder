@@ -30,7 +30,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isTokenValid()) {
-      initiateSpotifyAuth();
+      router.push("/");
       return;
     }
 
@@ -40,7 +40,7 @@ export default function DashboardPage() {
         setLoading(false);
       })
       .catch(() => {
-        initiateSpotifyAuth();
+        router.push("/");
       });
 
     getUserPlaylists()

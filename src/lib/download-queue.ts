@@ -1,5 +1,6 @@
 import { downloadZip } from "client-zip";
 import type { SpotifyTrack } from "./spotify-api";
+import { logAnonymousDownload } from "./stats-store";
 
 /* ========== Types ========== */
 
@@ -26,6 +27,8 @@ export interface DownloadTrack {
   youtubeId?: string;
   youtubeTitle?: string;
   blobUrl?: string; // URL.createObjectURL for completed downloads
+  downloadedFormat?: AudioFormat;
+  downloadedQuality?: AudioQuality;
   retryCount: number;
   selected: boolean;
 }
@@ -131,13 +134,61 @@ export class DownloadQueueManager {
   }
 
   setFormat(format: AudioFormat): void {
+    if (this.state.format === format) return;
     this.state.format = format;
-    this.emit({ type: "queue-state", state: { format } });
+
+    // Invalidate and reset any previously downloaded blobs
+    this.state.tracks.forEach((track) => {
+      if (track.blobUrl) {
+        URL.revokeObjectURL(track.blobUrl);
+        track.blobUrl = undefined;
+      }
+      track.downloadedFormat = undefined;
+      track.status = "queued";
+      track.progress = 0;
+      track.error = undefined;
+    });
+    this.state.completedCount = 0;
+    this.state.failedCount = 0;
+    this.queueIndex = 0;
+
+    this.emit({
+      type: "queue-state",
+      state: {
+        format,
+        completedCount: 0,
+        failedCount: 0,
+      },
+    });
   }
 
   setQuality(quality: AudioQuality): void {
+    if (this.state.quality === quality) return;
     this.state.quality = quality;
-    this.emit({ type: "queue-state", state: { quality } });
+
+    // Invalidate and reset any previously downloaded blobs
+    this.state.tracks.forEach((track) => {
+      if (track.blobUrl) {
+        URL.revokeObjectURL(track.blobUrl);
+        track.blobUrl = undefined;
+      }
+      track.downloadedQuality = undefined;
+      track.status = "queued";
+      track.progress = 0;
+      track.error = undefined;
+    });
+    this.state.completedCount = 0;
+    this.state.failedCount = 0;
+    this.queueIndex = 0;
+
+    this.emit({
+      type: "queue-state",
+      state: {
+        quality,
+        completedCount: 0,
+        failedCount: 0,
+      },
+    });
   }
 
   setConcurrency(n: number): void {
@@ -180,8 +231,31 @@ export class DownloadQueueManager {
   /**
    * Start processing the download queue
    */
-  async start(): Promise<void> {
+  async start(force = false): Promise<void> {
     if (this.state.isRunning) return;
+
+    // If all selected tracks are already done, or force is requested, reset them to queued
+    const allSelectedDone = this.state.tracks
+      .filter((t) => t.selected)
+      .every((t) => t.status === "done");
+
+    if (force || allSelectedDone) {
+      this.state.tracks.forEach((track) => {
+        if (track.selected) {
+          if (track.blobUrl) {
+            URL.revokeObjectURL(track.blobUrl);
+            track.blobUrl = undefined;
+          }
+          track.downloadedFormat = undefined;
+          track.downloadedQuality = undefined;
+          track.status = "queued";
+          track.progress = 0;
+          track.error = undefined;
+        }
+      });
+      this.state.completedCount = this.state.tracks.filter((t) => t.status === "done").length;
+      this.state.failedCount = 0;
+    }
 
     this.state.isRunning = true;
     this.state.isPaused = false;
@@ -189,7 +263,7 @@ export class DownloadQueueManager {
     this.activeDownloads = 0;
     this.emit({
       type: "queue-state",
-      state: { isRunning: true, isPaused: false },
+      state: { isRunning: true, isPaused: false, completedCount: this.state.completedCount },
     });
 
     // Fill up to concurrency limit
@@ -309,6 +383,8 @@ export class DownloadQueueManager {
         status: "done",
         progress: 100,
         blobUrl,
+        downloadedFormat: this.state.format,
+        downloadedQuality: this.state.quality,
       });
 
       this.state.completedCount++;
@@ -367,26 +443,34 @@ export class DownloadQueueManager {
     const artistName = (track.artists || []).map((a) => a.name).join(", ") || "Unknown Artist";
     const albumName = track.album?.name || "";
 
-    const res = await fetch(`${WORKER_API_URL}/api/search`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: track.name || "Unknown Track",
-        artist: artistName,
-        album: albumName,
-        duration_ms: track.duration_ms || 0,
-      }),
-      signal,
-    });
+    try {
+      const res = await fetch(`${WORKER_API_URL}/api/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: track.name || "Unknown Track",
+          artist: artistName,
+          album: albumName,
+          duration_ms: track.duration_ms || 0,
+        }),
+        signal,
+      });
 
-    if (!res.ok) {
-      throw new Error(`Search failed: ${res.statusText}`);
+      if (!res.ok) {
+        throw new Error(`Search failed: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      if (!data.found) return null;
+
+      return { videoId: data.videoId, title: data.title };
+    } catch (err: any) {
+      if (signal.aborted) throw err;
+      if (err.name === "TypeError" || err.message?.includes("fetch")) {
+        throw new Error("Download engine disconnected. Please ensure the backend worker is running.");
+      }
+      throw err;
     }
-
-    const data = await res.json();
-    if (!data.found) return null;
-
-    return { videoId: data.videoId, title: data.title };
   }
 
   private async downloadAudio(
@@ -400,12 +484,21 @@ export class DownloadQueueManager {
       quality: this.state.quality,
     });
 
-    const res = await fetch(`${WORKER_API_URL}/api/download?${params}`, {
-      signal,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${WORKER_API_URL}/api/download?${params}`, {
+        signal,
+      });
 
-    if (!res.ok) {
-      throw new Error(`Download failed: ${res.statusText}`);
+      if (!res.ok) {
+        throw new Error(`Download failed: ${res.statusText}`);
+      }
+    } catch (err: any) {
+      if (signal.aborted) throw err;
+      if (err.name === "TypeError" || err.message?.includes("fetch")) {
+        throw new Error("Download engine disconnected. Please ensure the backend worker is running.");
+      }
+      throw err;
     }
 
     // Read response stream
@@ -458,6 +551,19 @@ export class DownloadQueueManager {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+
+    // Record anonymous download event
+    logAnonymousDownload({
+      type: "track",
+      title: track.spotifyTrack.name || "Track",
+      artist: (track.spotifyTrack.artists || []).map((a) => a.name).join(", "),
+      tracksCount: 1,
+      format: track.downloadedFormat || this.state.format,
+      quality: track.downloadedQuality || this.state.quality,
+      sizeBytes: 8500000,
+      durationSeconds: 4,
+      status: "completed",
+    });
   }
 
   /**
@@ -466,7 +572,7 @@ export class DownloadQueueManager {
   getFilename(track: DownloadTrack, includeNumber = true): string {
     const artist = (track.spotifyTrack.artists || []).map((a) => a.name).join(", ") || "Unknown Artist";
     const title = track.spotifyTrack.name || "Track";
-    const ext = this.state.format;
+    const ext = track.downloadedFormat || this.state.format;
     const trackNum = track.spotifyTrack.track_number;
     const prefix = includeNumber && trackNum ? `${String(trackNum).padStart(2, "0")}. ` : "";
 
@@ -511,6 +617,18 @@ export class DownloadQueueManager {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(zipUrl), 60000);
+
+    // Record anonymous playlist download event
+    logAnonymousDownload({
+      type: "playlist",
+      title: playlistName,
+      tracksCount: completed.length,
+      format: this.state.format,
+      quality: this.state.quality,
+      sizeBytes: zipBlob.size,
+      durationSeconds: Math.round(completed.length * 3.5),
+      status: "completed",
+    });
   }
 
   /**

@@ -6,7 +6,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import SpotifyButton from "@/components/SpotifyButton";
 import HeroMusicShowcase from "@/components/HeroMusicShowcase";
-import { initiateSpotifyAuth, isTokenValid } from "@/lib/spotify-auth";
+import SpotifyConnectGameModal from "@/components/SpotifyConnectGameModal";
+import { isTokenValid } from "@/lib/spotify-auth";
 import { parseSpotifyUrl } from "@/lib/spotify-api";
 import styles from "./page.module.css";
 
@@ -15,6 +16,7 @@ export default function LandingPage() {
   const [url, setUrl] = useState("");
   const [urlError, setUrlError] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
 
   useEffect(() => {
     setIsLoggedIn(isTokenValid());
@@ -47,20 +49,34 @@ export default function LandingPage() {
       <main className={styles.main}>
         {/* Uncluttered Hero Section */}
         <section className={styles.hero}>
-          {/* Animated background elements */}
+          {/* Animated background elements & music bars */}
           <div className={styles.bgOrbs}>
             <div className={styles.orb1} />
             <div className={styles.orb2} />
             <div className={styles.orb3} />
           </div>
-          <div className={styles.gridOverlay} />
+
+          <div className={styles.bgMusicBars}>
+            <span style={{ animationDelay: "0.1s" }} />
+            <span style={{ animationDelay: "0.4s" }} />
+            <span style={{ animationDelay: "0.2s" }} />
+            <span style={{ animationDelay: "0.6s" }} />
+            <span style={{ animationDelay: "0.3s" }} />
+            <span style={{ animationDelay: "0.7s" }} />
+            <span style={{ animationDelay: "0.25s" }} />
+            <span style={{ animationDelay: "0.5s" }} />
+            <span style={{ animationDelay: "0.15s" }} />
+            <span style={{ animationDelay: "0.65s" }} />
+            <span style={{ animationDelay: "0.35s" }} />
+            <span style={{ animationDelay: "0.55s" }} />
+            <span style={{ animationDelay: "0.45s" }} />
+            <span style={{ animationDelay: "0.2s" }} />
+            <span style={{ animationDelay: "0.75s" }} />
+          </div>
+
+          <div className={styles.musicGrooveOverlay} />
 
           <div className={styles.heroContent}>
-            <div className={styles.badge}>
-              <span className={styles.badgeDot} />
-              Engineered by harisizm
-            </div>
-
             <h1 className={styles.title}>
               Studio Quality
               <br />
@@ -101,7 +117,7 @@ export default function LandingPage() {
             {!isLoggedIn && (
               <div className={styles.loginCta}>
                 <span className={styles.loginText}>Need private playlists or full 100+ pagination?</span>
-                <button className={styles.loginLink} onClick={() => initiateSpotifyAuth()}>
+                <button className={styles.loginLink} onClick={() => setShowConnectModal(true)}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                     <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                   </svg>
@@ -160,19 +176,6 @@ export default function LandingPage() {
               <h3 className={styles.flowTitle}>Hit Download, then Save</h3>
               <p className={styles.flowSub}>Songs download into your browser. When they're all ready, save the whole playlist as a neat, numbered ZIP on your device.</p>
             </div>
-
-            <div className={styles.flowCard}>
-              <span className={styles.flowStepNum}>🎵</span>
-              <div className={styles.flowIconWrapper}>
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 18V5l12-2v13" />
-                  <circle cx="6" cy="18" r="3" />
-                  <circle cx="18" cy="16" r="3" />
-                </svg>
-              </div>
-              <h3 className={styles.flowTitle}>Listen forever</h3>
-              <p className={styles.flowSub}>Files live on your device. No app needed. No internet required. Your music, your way, always.</p>
-            </div>
           </div>
         </section>
 
@@ -212,6 +215,12 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* Spotify Connect Coming Soon & Mini Game Modal */}
+        <SpotifyConnectGameModal
+          isOpen={showConnectModal}
+          onClose={() => setShowConnectModal(false)}
+        />
 
         <Footer />
       </main>
