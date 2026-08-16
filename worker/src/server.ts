@@ -58,6 +58,17 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
+// Root welcome route
+app.get("/", (_req, res) => {
+  res.json({
+    service: "Pasooriizm Worker Backend",
+    status: "online",
+    version: "1.0.0",
+    docs: "https://github.com/harisizm/spotify-downlaoder",
+    endpoints: ["/health", "/api/search", "/api/download", "/api/batch"],
+  });
+});
+
 // Health check route
 app.get("/health", (_req, res) => {
   res.json({
