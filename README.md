@@ -1,96 +1,149 @@
-# Pasooriizm | Spotify Playlist Downloader
+# Pasooriizm — Spotify Playlist Downloader
 *Built by **[harisizm](https://www.linkedin.com/in/harisizm/)***
 
-Pasooriizm is a web application to download Spotify playlists, albums, and tracks in high quality (up to 320kbps MP3/WAV) without song limits.
+A local desktop application to download entire Spotify playlists, albums, and tracks in high quality audio (up to 320kbps MP3/WAV) — no song limits, no account required.
 
 ---
 
 ## ⚡ Key Features
 
-- **Full Playlist Downloads**: No 100-song limit. Download playlists with hundreds or thousands of tracks with complete pagination.
-- **High Quality Audio**: Supports 128kbps, 192kbps, 256kbps, and 320kbps in MP3, M4A, OPUS, and WAV.
-- **Fast Batch Downloads**: Parallel downloader processes multiple songs simultaneously.
-- **Automatic ZIP Packaging**: Bundles your songs into a cleanly organized, numbered ZIP file on your device.
-- **Pakistani & Viral Charts Sampler**: 1-click sampler featuring top Pakistani and viral hits with swipe/drag navigation.
-- **Hybrid Architecture**: Fast Next.js frontend deployable for 100% free on Vercel with a lightweight Dockerized worker backend for Render or Railway.
-- **Spotify Design System**: Custom glassmorphism UI with vibrant green accents, dark mode styling, and smooth micro-animations.
+- **Full Playlist Downloads** — No 100-song limit. Handles playlists with hundreds or thousands of tracks.
+- **High Quality Audio** — 128 / 192 / 256 / 320 kbps in MP3, M4A, OPUS, and WAV.
+- **Fast Parallel Downloads** — Processes multiple songs simultaneously.
+- **Automatic ZIP Packaging** — Bundles songs into a cleanly organized, numbered ZIP file.
+- **Pakistani & Viral Charts Sampler** — 1-click sampler with swipeable navigation.
+- **Smart YouTube Matching** — Scores and ranks YouTube results by title, artist, and duration to find the best audio match. Avoids DRM-protected auto-generated Topic channels.
+- **Spotify Design System** — Glassmorphism UI with vibrant green accents, dark mode, and smooth micro-animations.
 
 ---
 
-## 📁 Repository Structure
+## 🚀 Quick Start (Local)
+
+### Prerequisites
+
+| Tool | Version | Install |
+|------|---------|---------|
+| **Node.js** | 18+ | [nodejs.org](https://nodejs.org) |
+| **npm** | 9+ | Comes with Node.js |
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/harisizm/spotify-downlaoder.git
+cd spotify-downlaoder
+npm install
+cd worker && npm install && cd ..
+```
+
+### 2. Start Both Servers
+
+Open **two terminals**:
+
+**Terminal 1 — Frontend** (Next.js at http://localhost:3000):
+```bash
+npm run dev
+```
+
+**Terminal 2 — Worker Backend** (Express at http://localhost:3001):
+```bash
+cd worker
+npm run dev
+```
+
+### 3. Use the App
+
+1. Open **http://localhost:3000** in your browser
+2. Paste any Spotify playlist, album, or track URL
+3. Select your tracks, choose format & quality
+4. Click **Download** — songs are extracted, converted, and saved locally
+
+---
+
+## 📁 Project Structure
 
 ```
 ├── src/                              # Next.js 15 App Router Frontend
 │   ├── app/
 │   │   ├── page.tsx                  # Landing page (hero, URL input, feature showcase)
 │   │   ├── dashboard/page.tsx        # User playlist dashboard
-│   │   ├── download/[playlistId]/    # Download manager, search, filter & ZIP bundler
+│   │   ├── download/[playlistId]/    # Download manager with search, filter & ZIP bundler
 │   │   ├── callback/page.tsx         # OAuth callback handler
-│   │   ├── api/spotify/
+│   │   ├── stats/page.tsx            # Anonymous admin telemetry dashboard
+│   │   ├── api/spotify/              # Spotify metadata API routes
 │   │   │   ├── playlist/[id]/        # Universal metadata resolver (zero-config & official API)
 │   │   │   └── token/                # PKCE token exchange proxy
+│   │   ├── api/stats/                # MongoDB telemetry API (GET/POST/DELETE)
+│   │   ├── api/admin/auth/           # Admin authentication endpoint
 │   │   └── globals.css               # Spotify design tokens & animations
 │   ├── components/                   # Navbar, TrackRow, ProgressBar, QualitySelector, etc.
 │   └── lib/                          # Spotify API client, PKCE auth, download queue manager
-├── worker/                           # Dockerized audio processing backend
+├── worker/                           # Audio processing backend
 │   ├── src/
 │   │   ├── server.ts                 # Express server with CORS & rate limiter
 │   │   ├── routes/                   # /api/search, /api/download, /api/batch
-│   │   └── lib/                      # yt-dlp & ffmpeg-static audio processor
-│   ├── Dockerfile                    # Debian slim + ffmpeg + yt-dlp container
+│   │   └── lib/
+│   │       ├── audio-processor.ts    # yt-dlp + ffmpeg audio extraction & streaming
+│   │       └── youtube-search.ts     # Smart YouTube matching with DRM-safe scoring
+│   ├── bin/                          # yt-dlp binary (auto-downloaded, gitignored)
+│   ├── Dockerfile                    # Container config (for optional cloud deploy)
 │   └── package.json
 ├── public/                           # Static assets & icons
+├── .env.local                        # Environment configuration (gitignored)
+├── .env.example                      # Environment template
 ├── next.config.ts                    # Next.js configuration
-├── package.json                      # Frontend dependencies
-├── .env.example                      # Frontend environment template
-└── .gitignore                        # Production deployment gitignore
+└── package.json                      # Frontend dependencies
 ```
 
 ---
 
-## 🚀 Getting Started Locally
+## ⚙️ Configuration
 
-### 1. Start the Frontend (Next.js)
-```bash
-npm install
-npm run dev
-```
-The frontend will run at `http://localhost:3000`.
+Copy `.env.example` to `.env.local` and fill in:
 
-### 2. Start the Download Worker (Backend)
-```bash
-cd worker
-npm install
-npm run dev
+```env
+# Spotify Developer Credentials (OPTIONAL — app works in zero-config mode without these)
+NEXT_PUBLIC_SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
+NEXT_PUBLIC_SPOTIFY_REDIRECT_URI=http://localhost:3000/callback
+
+# Worker API URL (default for local)
+NEXT_PUBLIC_WORKER_API_URL=http://localhost:3001
+
+# Admin Dashboard (optional)
+ADMIN_PASSWORD=admin
+NEXT_PUBLIC_ADMIN_USER=admin
+
+# MongoDB Telemetry (optional)
+MONGODB_URI=your_mongodb_connection_string
 ```
-The worker service will listen on `http://localhost:3001`.
+
+> **Note:** The app works without any Spotify credentials. It uses a zero-config metadata resolver that fetches playlist info from Spotify's public embed API.
 
 ---
 
-## 🌐 100% Free Production Deployment Guide
+## 🏗️ How It Works
 
-### Part 1: Deploy Backend Worker (Render or Koyeb — Free)
-1. Go to [Render](https://render.com) and click **New > Web Service**.
-2. Connect your GitHub repository (`https://github.com/harisizm/spotify-downlaoder.git`).
-3. Configure the service:
-   - **Root Directory**: `worker`
-   - **Environment**: `Docker` (Render will automatically detect `worker/Dockerfile`)
-   - **Plan**: **Free**
-4. Under **Environment Variables**, add:
-   - `PORT`: `3001`
-   - `ALLOWED_ORIGINS`: `https://your-frontend.vercel.app` (or `*` temporarily)
-5. Click **Create Web Service**. Once deployed, copy your worker URL (e.g. `https://spotdown-worker.onrender.com`).
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌──────────────┐
+│  Next.js Frontend   │────▶│  Worker Backend      │────▶│   YouTube    │
+│  (localhost:3000)    │     │  (localhost:3001)     │     │   (audio)    │
+│                     │     │                      │     │              │
+│  • Spotify metadata │     │  • YouTube search    │     │  • yt-dlp    │
+│  • Download queue   │     │  • yt-dlp + ffmpeg   │     │  • ffmpeg    │
+│  • ZIP bundler      │     │  • Audio streaming   │     │  • Convert   │
+└─────────────────────┘     └─────────────────────┘     └──────────────┘
+```
 
-### Part 2: Deploy Frontend (Vercel — Free)
-1. Go to [Vercel](https://vercel.com) and click **Add New > Project**.
-2. Import your GitHub repository (`spotify-downlaoder`).
-3. Framework Preset: **Next.js** (Root Directory: `./`).
-4. In **Environment Variables**, add:
-   - `NEXT_PUBLIC_WORKER_API_URL`: Your Render worker URL (e.g. `https://spotdown-worker.onrender.com`)
-   - `NEXT_PUBLIC_SPOTIFY_CLIENT_ID`: Your Spotify Developer Client ID (optional)
-   - `SPOTIFY_CLIENT_SECRET`: Your Spotify Developer Client Secret (optional)
-   - `NEXT_PUBLIC_SPOTIFY_REDIRECT_URI`: `https://your-app.vercel.app/callback`
-5. Click **Deploy**. Your app is live!
+1. **Frontend** fetches playlist metadata from Spotify's public embed API
+2. **Worker** searches YouTube for each track using smart scoring (title + artist + duration match)
+3. **Worker** downloads audio via `yt-dlp`, converts with `ffmpeg`, and streams the file back
+4. **Frontend** receives audio blobs, tracks progress, and bundles everything into a ZIP
+
+---
+
+## ⚠️ Cloud Deployment Note
+
+This app is designed to run **locally**. YouTube aggressively blocks all datacenter IP addresses (Render, AWS, GCP, Vercel, etc.) from downloading audio — this is an IP-level block that cannot be bypassed with code. Running locally uses your home/residential IP, which YouTube treats as a normal user.
 
 ---
 
