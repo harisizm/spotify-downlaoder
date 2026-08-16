@@ -70,15 +70,12 @@ export function streamAudioFromYouTube({
     res.setHeader("Content-Type", mimeTypes[format] || "audio/mpeg");
     res.setHeader("Accept-Ranges", "bytes");
 
-    // yt-dlp arguments: extract and transcode directly to stdout with multi-client fallback
+    // yt-dlp arguments: extract audio stream to stdout
     const ytdlpArgs = [
       "--extractor-args", "youtube:player_client=android,web,mweb,ios",
-      "-f", "ba/140/251/18/best",
+      "-f", "251/ba/140/18/bestaudio/best",
       "--no-playlist",
       "--no-warnings",
-      "-x",
-      "--audio-format", format === "wav" ? "wav" : format === "m4a" ? "m4a" : format === "opus" ? "opus" : "mp3",
-      "--audio-quality", format === "wav" ? "0" : `${quality}k`,
       "-o", "-",
       youtubeUrl,
     ];
@@ -94,6 +91,39 @@ export function streamAudioFromYouTube({
       return reject(spawnErr);
     }
 
+    // FFmpeg arguments: transcode streaming audio to selected format
+    const ffmpegArgs = ["-i", "pipe:0", "-vn"];
+
+    switch (format) {
+      case "m4a":
+        ffmpegArgs.push("-c:a", "aac", "-b:a", `${quality}k`, "-ar", "44100", "-f", "adts");
+        break;
+      case "opus":
+        ffmpegArgs.push("-c:a", "libopus", "-b:a", `${quality}k`, "-f", "opus");
+        break;
+      case "wav":
+        ffmpegArgs.push("-c:a", "pcm_s16le", "-ar", "44100", "-ac", "2", "-f", "wav");
+        break;
+      case "mp3":
+      default:
+        ffmpegArgs.push("-c:a", "libmp3lame", "-b:a", `${quality}k`, "-ar", "44100", "-f", "mp3");
+        break;
+    }
+
+    ffmpegArgs.push("pipe:1");
+
+    let ffmpeg: any;
+    try {
+      ffmpeg = spawn(ffmpegExe, ffmpegArgs);
+    } catch (ffmpegErr) {
+      console.error("Failed to spawn FFmpeg:", ffmpegErr);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to initialize audio converter." });
+      }
+      if (ytdlp && !ytdlp.killed) ytdlp.kill("SIGTERM");
+      return reject(ffmpegErr);
+    }
+
     // Handle EPIPE and stream errors safely
     const ignorePipeError = (err: any) => {
       if (err && (err.code === "EPIPE" || err.code === "ECONNRESET" || err.code === "ERR_STREAM_DESTROYED")) {
@@ -103,26 +133,33 @@ export function streamAudioFromYouTube({
     };
 
     ytdlp.stdout.on("error", ignorePipeError);
+    ffmpeg.stdin.on("error", ignorePipeError);
+    ffmpeg.stdout.on("error", ignorePipeError);
     res.on("error", ignorePipeError);
 
-    ytdlp.stdout.pipe(res);
+    ytdlp.stdout.pipe(ffmpeg.stdin);
+    ffmpeg.stdout.pipe(res);
 
     const cleanup = () => {
       try {
         if (ytdlp && !ytdlp.killed) ytdlp.kill("SIGTERM");
+      } catch {}
+      try {
+        if (ffmpeg && !ffmpeg.killed) ffmpeg.kill("SIGTERM");
       } catch {}
     };
 
     res.on("close", cleanup);
     res.on("finish", cleanup);
 
-    ytdlp.on("close", (code: number) => {
+    ffmpeg.on("close", (code: number) => {
       cleanup();
       resolve();
     });
 
-    ytdlp.stderr.on("data", (_data: Buffer) => {
-      // Progress output from yt-dlp
+    ffmpeg.on("error", (err: Error) => {
+      ignorePipeError(err);
+      cleanup();
     });
 
     ytdlp.on("error", (err: Error) => {
