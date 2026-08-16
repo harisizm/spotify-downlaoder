@@ -18,6 +18,9 @@ export interface StreamAudioOptions {
  * Determine the executable path for yt-dlp
  */
 function getYtDlpPath(): string {
+  if (fs.existsSync("/usr/local/bin/yt-dlp")) return "/usr/local/bin/yt-dlp";
+  if (fs.existsSync("/usr/bin/yt-dlp")) return "/usr/bin/yt-dlp";
+
   // Check local bin directory
   const localBinExe = path.resolve(process.cwd(), "bin", "yt-dlp.exe");
   if (fs.existsSync(localBinExe)) return localBinExe;
@@ -33,6 +36,9 @@ function getYtDlpPath(): string {
  * Determine the executable path for FFmpeg
  */
 function getFfmpegPath(): string {
+  if (fs.existsSync("/usr/bin/ffmpeg")) return "/usr/bin/ffmpeg";
+  if (fs.existsSync("/usr/local/bin/ffmpeg")) return "/usr/local/bin/ffmpeg";
+
   if (ffmpegPath && fs.existsSync(ffmpegPath)) {
     return ffmpegPath;
   }
@@ -64,9 +70,9 @@ export function streamAudioFromYouTube({
     res.setHeader("Content-Type", mimeTypes[format] || "audio/mpeg");
     res.setHeader("Accept-Ranges", "bytes");
 
-    // yt-dlp arguments: extract audio using android player client to bypass 403 SABR restrictions
+    // yt-dlp arguments: extract audio using multi-client to bypass 403 SABR restrictions on cloud IPs
     const ytdlpArgs = [
-      "--extractor-args", "youtube:player_client=android",
+      "--extractor-args", "youtube:player_client=android,web,mweb,ios",
       "-f", "ba/140/251/18/best",
       "--no-playlist",
       "--no-warnings",
