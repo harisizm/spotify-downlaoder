@@ -45,7 +45,48 @@ function getFfmpegDir(): string {
 }
 
 /**
- * Download and convert audio from YouTube, streaming the verified file to the client
+ * Cookie file path — written once at startup from YOUTUBE_COOKIES env var
+ */
+const COOKIE_FILE_PATH = path.join(os.tmpdir(), "yt_cookies.txt");
+
+/**
+ * Write YouTube cookies file from env var (called once at import time)
+ */
+function initCookieFile(): boolean {
+  const cookieData = process.env.YOUTUBE_COOKIES;
+  if (!cookieData) {
+    console.warn("[AudioProcessor] No YOUTUBE_COOKIES env var set. YouTube may block datacenter IPs.");
+    return false;
+  }
+
+  try {
+    // The env var contains the Netscape cookie file content (base64 encoded to preserve newlines)
+    let decoded: string;
+    try {
+      decoded = Buffer.from(cookieData, "base64").toString("utf-8");
+      // Verify it looks like a cookie file
+      if (!decoded.includes(".youtube.com") && !decoded.includes("youtube")) {
+        // Not base64, try raw
+        decoded = cookieData;
+      }
+    } catch {
+      decoded = cookieData;
+    }
+    
+    fs.writeFileSync(COOKIE_FILE_PATH, decoded, "utf-8");
+    console.log(`[AudioProcessor] YouTube cookies file written to ${COOKIE_FILE_PATH} (${decoded.length} bytes)`);
+    return true;
+  } catch (err) {
+    console.error("[AudioProcessor] Failed to write cookie file:", err);
+    return false;
+  }
+}
+
+const HAS_COOKIES = initCookieFile();
+
+/**
+ * Download and convert audio from YouTube, streaming the verified file to the client.
+ * Uses cookies to bypass datacenter IP bot detection.
  */
 export function streamAudioFromYouTube({
   youtubeId,
@@ -71,17 +112,26 @@ export function streamAudioFromYouTube({
     const finalFilePath = `${tempBasePath}.${ext}`;
 
     const ytdlpArgs = [
+      // Mobile client APIs to avoid web captcha flow
       "--extractor-args", "youtube:player_client=ios,android",
+      // Authentic mobile user-agent
       "--user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1",
       "--add-header", "Accept-Language:en-US,en;q=0.9",
       "-f", "bestaudio/best",
       "--no-playlist",
       "--no-warnings",
+      "--geo-bypass",
+      "--no-check-certificates",
       "-x",
       "--audio-format", ext,
       "--audio-quality", format === "wav" ? "0" : `${quality}k`,
       "-o", `${tempBasePath}.%(ext)s`,
     ];
+
+    // Add cookies if available — this is the KEY fix for datacenter IPs
+    if (HAS_COOKIES && fs.existsSync(COOKIE_FILE_PATH)) {
+      ytdlpArgs.push("--cookies", COOKIE_FILE_PATH);
+    }
 
     if (ffmpegDir) {
       ytdlpArgs.push("--ffmpeg-location", ffmpegDir);
@@ -89,7 +139,7 @@ export function streamAudioFromYouTube({
 
     ytdlpArgs.push(youtubeUrl);
 
-    console.log(`[AudioProcessor] Starting audio fetch for ${youtubeId} (${format} ${quality}k) -> ${finalFilePath}`);
+    console.log(`[AudioProcessor] Starting audio fetch for ${youtubeId} (${format} ${quality}k) -> ${finalFilePath}${HAS_COOKIES ? ' [with cookies]' : ' [NO cookies]'}`);
     const startMs = Date.now();
 
     let ytdlp: any;
