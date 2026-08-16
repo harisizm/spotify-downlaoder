@@ -2,6 +2,7 @@ import { spawn } from "child_process";
 import { Response } from "express";
 import path from "path";
 import fs from "fs";
+import os from "os";
 import ffmpegPath from "ffmpeg-static";
 
 export type AudioFormat = "mp3" | "m4a" | "opus" | "wav";
@@ -21,32 +22,30 @@ function getYtDlpPath(): string {
   if (fs.existsSync("/usr/local/bin/yt-dlp")) return "/usr/local/bin/yt-dlp";
   if (fs.existsSync("/usr/bin/yt-dlp")) return "/usr/bin/yt-dlp";
 
-  // Check local bin directory
   const localBinExe = path.resolve(process.cwd(), "bin", "yt-dlp.exe");
   if (fs.existsSync(localBinExe)) return localBinExe;
 
   const localBinLinux = path.resolve(process.cwd(), "bin", "yt-dlp");
   if (fs.existsSync(localBinLinux)) return localBinLinux;
 
-  // Fallback to system PATH
   return process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
 }
 
 /**
- * Determine the executable path for FFmpeg
+ * Determine the directory path for FFmpeg executable
  */
-function getFfmpegPath(): string {
-  if (fs.existsSync("/usr/bin/ffmpeg")) return "/usr/bin/ffmpeg";
-  if (fs.existsSync("/usr/local/bin/ffmpeg")) return "/usr/local/bin/ffmpeg";
+function getFfmpegDir(): string {
+  if (fs.existsSync("/usr/bin/ffmpeg")) return "/usr/bin";
+  if (fs.existsSync("/usr/local/bin/ffmpeg")) return "/usr/local/bin";
 
   if (ffmpegPath && fs.existsSync(ffmpegPath)) {
-    return ffmpegPath;
+    return path.dirname(ffmpegPath);
   }
-  return process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  return "";
 }
 
 /**
- * Stream audio from YouTube using yt-dlp and FFmpeg (pure audio, zero video)
+ * Download and convert audio from YouTube, streaming the verified file to the client
  */
 export function streamAudioFromYouTube({
   youtubeId,
@@ -57,7 +56,7 @@ export function streamAudioFromYouTube({
   return new Promise((resolve, reject) => {
     const youtubeUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
     const ytDlpPath = getYtDlpPath();
-    const ffmpegExe = getFfmpegPath();
+    const ffmpegDir = getFfmpegDir();
 
     const mimeTypes: Record<AudioFormat, string> = {
       mp3: "audio/mpeg",
@@ -66,134 +65,98 @@ export function streamAudioFromYouTube({
       wav: "audio/wav",
     };
 
-    // yt-dlp arguments: extract audio stream to stdout with multi-client android/web support
+    const ext = format === "opus" ? "opus" : format === "m4a" ? "m4a" : format === "wav" ? "wav" : "mp3";
+    const tempFileId = `spotdown_${youtubeId}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const tempBasePath = path.join(os.tmpdir(), tempFileId);
+    const finalFilePath = `${tempBasePath}.${ext}`;
+
     const ytdlpArgs = [
       "--extractor-args", "youtube:player_client=android,web,mweb,ios",
       "-f", "251/ba/140/18/bestaudio/best",
       "--no-playlist",
       "--no-warnings",
-      "-o", "-",
-      youtubeUrl,
+      "-x",
+      "--audio-format", ext,
+      "--audio-quality", format === "wav" ? "0" : `${quality}k`,
+      "-o", `${tempBasePath}.%(ext)s`,
     ];
+
+    if (ffmpegDir) {
+      ytdlpArgs.push("--ffmpeg-location", ffmpegDir);
+    }
+
+    ytdlpArgs.push(youtubeUrl);
+
+    console.log(`[AudioProcessor] Starting audio fetch for ${youtubeId} (${format} ${quality}k) -> ${finalFilePath}`);
+    const startMs = Date.now();
 
     let ytdlp: any;
     try {
       ytdlp = spawn(ytDlpPath, ytdlpArgs);
     } catch (spawnErr) {
-      console.error("Failed to spawn yt-dlp:", spawnErr);
+      console.error("[AudioProcessor] Failed to spawn yt-dlp:", spawnErr);
       if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to initialize audio extraction." });
+        res.status(500).json({ error: "Failed to initialize audio extraction engine." });
       }
       return reject(spawnErr);
     }
 
-    // FFmpeg arguments: transcode streaming audio to selected format
-    const ffmpegArgs = ["-i", "pipe:0", "-vn"];
-
-    switch (format) {
-      case "m4a":
-        ffmpegArgs.push("-c:a", "aac", "-b:a", `${quality}k`, "-ar", "44100", "-f", "adts");
-        break;
-      case "opus":
-        ffmpegArgs.push("-c:a", "libopus", "-b:a", `${quality}k`, "-f", "opus");
-        break;
-      case "wav":
-        ffmpegArgs.push("-c:a", "pcm_s16le", "-ar", "44100", "-ac", "2", "-f", "wav");
-        break;
-      case "mp3":
-      default:
-        ffmpegArgs.push("-c:a", "libmp3lame", "-b:a", `${quality}k`, "-ar", "44100", "-f", "mp3");
-        break;
-    }
-
-    ffmpegArgs.push("pipe:1");
-
-    let ffmpeg: any;
-    try {
-      ffmpeg = spawn(ffmpegExe, ffmpegArgs);
-    } catch (ffmpegErr) {
-      console.error("Failed to spawn FFmpeg:", ffmpegErr);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to initialize audio converter." });
-      }
-      if (ytdlp && !ytdlp.killed) ytdlp.kill("SIGTERM");
-      return reject(ffmpegErr);
-    }
-
-    let headersSent = false;
-    let totalBytesStreamed = 0;
-
-    // Handle EPIPE and stream errors safely
-    const ignorePipeError = (err: any) => {
-      if (err && (err.code === "EPIPE" || err.code === "ECONNRESET" || err.code === "ERR_STREAM_DESTROYED")) {
-        return;
-      }
-      if (err) console.warn("Audio stream pipe notice:", err.message || err);
-    };
-
-    ytdlp.stdout.on("error", ignorePipeError);
-    ffmpeg.stdin.on("error", ignorePipeError);
-    ffmpeg.stdout.on("error", ignorePipeError);
-    res.on("error", ignorePipeError);
-
-    ytdlp.stdout.pipe(ffmpeg.stdin);
-
-    ffmpeg.stdout.on("data", (chunk: Buffer) => {
-      if (!headersSent) {
-        headersSent = true;
-        res.writeHead(200, {
-          "Content-Type": mimeTypes[format] || "audio/mpeg",
-          "Accept-Ranges": "bytes",
-          "Transfer-Encoding": "chunked",
-        });
-      }
-      totalBytesStreamed += chunk.length;
-      res.write(chunk);
+    let stderrOutput = "";
+    ytdlp.stderr.on("data", (d: Buffer) => {
+      stderrOutput += d.toString();
     });
 
-    ffmpeg.stdout.on("end", () => {
-      if (headersSent) {
-        res.end();
-      }
-    });
-
-    const cleanup = () => {
+    const cleanupTemp = () => {
       try {
-        if (ytdlp && !ytdlp.killed) ytdlp.kill("SIGTERM");
-      } catch {}
-      try {
-        if (ffmpeg && !ffmpeg.killed) ffmpeg.kill("SIGTERM");
+        if (fs.existsSync(finalFilePath)) {
+          fs.unlinkSync(finalFilePath);
+        }
       } catch {}
     };
 
-    res.on("close", cleanup);
-    res.on("finish", cleanup);
+    ytdlp.on("close", (code: number) => {
+      const durationSec = ((Date.now() - startMs) / 1000).toFixed(1);
 
-    ffmpeg.on("close", (code: number) => {
-      cleanup();
-      if (!headersSent && !res.headersSent) {
-        console.error(`[AudioProcessor] FFmpeg exited with code ${code} without audio output.`);
-        res.status(500).json({ error: `Audio extraction failed (code ${code})` });
-        return reject(new Error(`FFmpeg exited with code ${code}`));
+      if (code !== 0 || !fs.existsSync(finalFilePath)) {
+        console.error(`[AudioProcessor] yt-dlp failed (code ${code}) in ${durationSec}s. Stderr:`, stderrOutput);
+        cleanupTemp();
+        if (!res.headersSent) {
+          res.status(500).json({ error: `Audio extraction failed (code ${code})` });
+        }
+        return reject(new Error(`yt-dlp exited with code ${code}`));
       }
-      console.log(`[AudioProcessor] Completed stream (${totalBytesStreamed} bytes sent, code ${code})`);
-      resolve();
-    });
 
-    ffmpeg.on("error", (err: Error) => {
-      ignorePipeError(err);
-      cleanup();
-      if (!headersSent && !res.headersSent) {
-        res.status(500).json({ error: "FFmpeg process error." });
-      }
-      reject(err);
+      const stat = fs.statSync(finalFilePath);
+      console.log(`[AudioProcessor] Successfully converted ${youtubeId} in ${durationSec}s (${(stat.size / 1024 / 1024).toFixed(2)} MB). Streaming to client...`);
+
+      res.setHeader("Content-Type", mimeTypes[format] || "audio/mpeg");
+      res.setHeader("Content-Length", stat.size.toString());
+      res.setHeader("Accept-Ranges", "bytes");
+
+      const readStream = fs.createReadStream(finalFilePath);
+      readStream.on("error", (streamErr) => {
+        console.warn("[AudioProcessor] ReadStream notice:", streamErr.message);
+        cleanupTemp();
+      });
+
+      res.on("close", () => {
+        readStream.destroy();
+        cleanupTemp();
+      });
+
+      res.on("finish", () => {
+        cleanupTemp();
+        resolve();
+      });
+
+      readStream.pipe(res);
     });
 
     ytdlp.on("error", (err: Error) => {
-      ignorePipeError(err);
-      cleanup();
-      if (!headersSent && !res.headersSent) {
-        res.status(500).json({ error: "yt-dlp process error." });
+      console.error("[AudioProcessor] yt-dlp process error:", err);
+      cleanupTemp();
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Download process encountered an error." });
       }
       reject(err);
     });
