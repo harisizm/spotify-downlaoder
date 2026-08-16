@@ -1,4 +1,4 @@
-import { spawn, execSync } from "child_process";
+import { spawn } from "child_process";
 import { Response } from "express";
 import path from "path";
 import fs from "fs";
@@ -66,11 +66,7 @@ export function streamAudioFromYouTube({
       wav: "audio/wav",
     };
 
-    // Configure response headers
-    res.setHeader("Content-Type", mimeTypes[format] || "audio/mpeg");
-    res.setHeader("Accept-Ranges", "bytes");
-
-    // yt-dlp arguments: extract audio stream to stdout
+    // yt-dlp arguments: extract audio stream to stdout with multi-client android/web support
     const ytdlpArgs = [
       "--extractor-args", "youtube:player_client=android,web,mweb,ios",
       "-f", "251/ba/140/18/bestaudio/best",
@@ -124,6 +120,9 @@ export function streamAudioFromYouTube({
       return reject(ffmpegErr);
     }
 
+    let headersSent = false;
+    let totalBytesStreamed = 0;
+
     // Handle EPIPE and stream errors safely
     const ignorePipeError = (err: any) => {
       if (err && (err.code === "EPIPE" || err.code === "ECONNRESET" || err.code === "ERR_STREAM_DESTROYED")) {
@@ -138,7 +137,25 @@ export function streamAudioFromYouTube({
     res.on("error", ignorePipeError);
 
     ytdlp.stdout.pipe(ffmpeg.stdin);
-    ffmpeg.stdout.pipe(res);
+
+    ffmpeg.stdout.on("data", (chunk: Buffer) => {
+      if (!headersSent) {
+        headersSent = true;
+        res.writeHead(200, {
+          "Content-Type": mimeTypes[format] || "audio/mpeg",
+          "Accept-Ranges": "bytes",
+          "Transfer-Encoding": "chunked",
+        });
+      }
+      totalBytesStreamed += chunk.length;
+      res.write(chunk);
+    });
+
+    ffmpeg.stdout.on("end", () => {
+      if (headersSent) {
+        res.end();
+      }
+    });
 
     const cleanup = () => {
       try {
@@ -154,19 +171,29 @@ export function streamAudioFromYouTube({
 
     ffmpeg.on("close", (code: number) => {
       cleanup();
+      if (!headersSent && !res.headersSent) {
+        console.error(`[AudioProcessor] FFmpeg exited with code ${code} without audio output.`);
+        res.status(500).json({ error: `Audio extraction failed (code ${code})` });
+        return reject(new Error(`FFmpeg exited with code ${code}`));
+      }
+      console.log(`[AudioProcessor] Completed stream (${totalBytesStreamed} bytes sent, code ${code})`);
       resolve();
     });
 
     ffmpeg.on("error", (err: Error) => {
       ignorePipeError(err);
       cleanup();
+      if (!headersSent && !res.headersSent) {
+        res.status(500).json({ error: "FFmpeg process error." });
+      }
+      reject(err);
     });
 
     ytdlp.on("error", (err: Error) => {
       ignorePipeError(err);
       cleanup();
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Download process encountered an error." });
+      if (!headersSent && !res.headersSent) {
+        res.status(500).json({ error: "yt-dlp process error." });
       }
       reject(err);
     });
