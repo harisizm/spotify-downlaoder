@@ -71,8 +71,8 @@ export function streamAudioFromYouTube({
     const finalFilePath = `${tempBasePath}.${ext}`;
 
     const ytdlpArgs = [
-      "--extractor-args", "youtube:player_client=android,web,mweb,ios",
-      "-f", "251/ba/140/18/bestaudio/best",
+      "--extractor-args", "youtube:player_client=android,ios",
+      "-f", "bestaudio/best",
       "--no-playlist",
       "--no-warnings",
       "-x",
