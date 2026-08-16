@@ -15,6 +15,9 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
   .split(",")
   .map((origin) => origin.trim());
 
+// Enable trust proxy for cloud reverse proxies (Render, Vercel, Cloudflare)
+app.set("trust proxy", 1);
+
 // Security middleware
 app.use(
   helmet({
@@ -47,6 +50,10 @@ const limiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_MAX || "120", 10),
   standardHeaders: true,
   legacyHeaders: false,
+  validate: {
+    xForwardedForHeader: false,
+    trustProxy: false,
+  },
   message: { error: "Too many requests from this IP, please try again later." },
 });
 app.use("/api/", limiter);
