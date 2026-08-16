@@ -13,6 +13,7 @@ export interface SearchMatch {
   author: string;
   durationSeconds: number;
   score: number;
+  candidates?: string[];
 }
 
 /**
@@ -43,7 +44,6 @@ function computeScore(
   if (candTitle.includes(qTitle)) {
     score += 40;
   } else {
-    // Check partial words
     const titleWords = qTitle.split(" ").filter((w) => w.length > 2);
     const matchedWords = titleWords.filter((w) => candTitle.includes(w));
     if (titleWords.length > 0) {
@@ -69,27 +69,38 @@ function computeScore(
     const expectedSec = query.duration_ms / 1000;
     const diff = Math.abs(candidate.seconds - expectedSec);
 
-    if (diff <= 3) {
-      score += 30;
-    } else if (diff <= 8) {
+    if (diff <= 4) {
+      score += 35;
+    } else if (diff <= 10) {
       score += 20;
-    } else if (diff <= 15) {
+    } else if (diff <= 25) {
       score += 10;
     } else if (diff > 60) {
-      score -= 30; // heavy penalty for massive length differences (e.g. 1-hour loops or full albums)
+      score -= 40; // heavy penalty for massive length differences (e.g. 1-hour loops or full albums)
     }
   }
 
-  // 4. Boost official audio / topic tracks
-  if (candTitle.includes("official audio") || candTitle.includes("audio") || candAuthor.includes("topic")) {
-    score += 10;
+  // 4. Boost official uploads / lyrics (DRM-free public streams)
+  if (
+    candTitle.includes("official video") ||
+    candTitle.includes("official audio") ||
+    candTitle.includes("music video") ||
+    candTitle.includes("lyrics") ||
+    candAuthor.includes("vevo")
+  ) {
+    score += 25;
   }
 
-  // 5. Penalize live, instrumental, 8d, slowed, reverb if not in query
-  const penalties = ["live", "instrumental", "karaoke", "8d", "slowed", "reverb", "cover"];
+  // 5. Heavily penalize YouTube auto-generated "- Topic" channels (which use Widevine DRM encryption)
+  if (candAuthor.includes("topic") || candTitle.includes("provided to youtube")) {
+    score -= 60;
+  }
+
+  // 6. Penalize live, instrumental, 8d, slowed, reverb if not in query
+  const penalties = ["live", "instrumental", "karaoke", "8d", "slowed", "reverb", "cover", "remix"];
   for (const p of penalties) {
     if (!qTitle.includes(p) && candTitle.includes(p)) {
-      score -= 25;
+      score -= 30;
     }
   }
 
@@ -97,61 +108,59 @@ function computeScore(
 }
 
 /**
- * Search YouTube using yt-search with scoring and fallback
+ * Search YouTube using yt-search with scoring and DRM-safe selection
  */
 export async function searchYouTubeBestMatch(query: SearchQuery): Promise<SearchMatch | null> {
   const searchQueries = [
+    `${query.artist} ${query.title} official video`,
     `${query.artist} - ${query.title} audio`,
-    `${query.artist} ${query.title}`,
-    `${query.title} ${query.artist} official`,
-    `${query.title} audio`,
+    `${query.artist} ${query.title} lyrics`,
+    `${query.title} ${query.artist}`,
   ];
 
   try {
-    let videos: any[] = [];
+    const seenIds = new Set<string>();
+    const allCandidates: any[] = [];
+
     for (const q of searchQueries) {
-      const results = await ytSearch(q);
-      if (results.videos && results.videos.length > 0) {
-        videos = results.videos;
-        break;
-      }
+      try {
+        const results = await ytSearch(q);
+        if (results.videos && results.videos.length > 0) {
+          for (const v of results.videos) {
+            if (!seenIds.has(v.videoId)) {
+              seenIds.add(v.videoId);
+              allCandidates.push(v);
+            }
+          }
+        }
+      } catch {}
+      if (allCandidates.length >= 8) break;
     }
 
-    if (videos.length === 0) {
+    if (allCandidates.length === 0) {
       return null;
     }
 
-    // Score candidates and pick highest
-    let bestMatch: SearchMatch | null = null;
-    let highestScore = -Infinity;
+    // Score all candidates
+    const scored = allCandidates.map((v) => ({
+      video: v,
+      score: computeScore(query, v),
+    }));
 
-    for (const v of videos.slice(0, 10)) {
-      const score = computeScore(query, v);
-      if (score > highestScore) {
-        highestScore = score;
-        bestMatch = {
-          videoId: v.videoId,
-          title: v.title,
-          author: v.author?.name || "YouTube",
-          durationSeconds: v.seconds,
-          score,
-        };
-      }
-    }
+    // Sort by highest score first
+    scored.sort((a, b) => b.score - a.score);
 
-    // If for some reason score was too low, fallback to first video
-    if (!bestMatch && videos.length > 0) {
-      const top = videos[0];
-      bestMatch = {
-        videoId: top.videoId,
-        title: top.title,
-        author: top.author?.name || "YouTube",
-        durationSeconds: top.seconds,
-        score: 10,
-      };
-    }
+    const top = scored[0];
+    const candidateIds = scored.slice(0, 5).map((s) => s.video.videoId);
 
-    return bestMatch;
+    return {
+      videoId: top.video.videoId,
+      title: top.video.title,
+      author: top.video.author?.name || "YouTube",
+      durationSeconds: top.video.seconds,
+      score: top.score,
+      candidates: candidateIds,
+    };
   } catch (error) {
     console.error("YouTube search error:", error);
     return null;

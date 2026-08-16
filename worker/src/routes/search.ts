@@ -35,6 +35,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
       author: match.author,
       durationSeconds: match.durationSeconds,
       score: match.score,
+      candidates: match.candidates || [match.videoId],
     });
   } catch (error) {
     console.error("Search route error:", error);
