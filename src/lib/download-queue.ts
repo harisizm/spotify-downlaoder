@@ -248,6 +248,8 @@ export class DownloadQueueManager {
           }
           track.downloadedFormat = undefined;
           track.downloadedQuality = undefined;
+          track.youtubeId = undefined;
+          track.youtubeTitle = undefined;
           track.status = "queued";
           track.progress = 0;
           track.error = undefined;
@@ -312,10 +314,14 @@ export class DownloadQueueManager {
     if (!track || track.status !== "error") return;
 
     track.retryCount = 0;
+    track.youtubeId = undefined;
+    track.youtubeTitle = undefined;
     this.updateTrack(trackId, {
       status: "queued",
       progress: 0,
       error: undefined,
+      youtubeId: undefined,
+      youtubeTitle: undefined,
     });
 
     this.processTrack(track);
