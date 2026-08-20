@@ -5,15 +5,30 @@ A high-performance desktop web application to download full Spotify playlists, a
 
 ---
 
+## ⚡ Proven Benchmark: 10+ Songs / Min (~600 Songs / Hour)
+
+<div align="center">
+  <img src="./10%20songs%20per%20min.png" alt="10 songs per min speed for M4A download" width="100%" />
+</div>
+
+> ### 📊 Real-World Proven Results (M4A Native Mode):
+> - **Sustained Throughput**: **10+ songs per minute** in real-world runs
+> - **Hourly Output**: **600+ songs per hour** ($\text{10 songs/min} \times \text{60 mins} = \mathbf{600\text{ tracks/hr}}$)
+> - **300+ Track Playlists**: Complete entire 324-song libraries in **~25–30 minutes**
+> - **Zero Quality Loss**: Pristine 1:1 original AAC stream pass-through (Format `140`) with 0-second conversion delay
+
+---
+
 ## ⚡ Key Highlights & Architecture
 
 - 🚀 **Direct In-Memory Search Engine** — Resolves YouTube audio matches in **~0.8s** directly in memory without process spawn lag.
 - 🔮 **Pipelined Lookahead Pre-Search** — Proactively searches the next 6–10 upcoming tracks in the background while earlier tracks download, reducing perceived search latency to **0.0 seconds**.
 - 🎵 **Native 1:1 Studio Master Audio (M4A / AAC)** — Downloads Google's native studio audio stream (Format `140`) directly with **zero generational transcoding loss** and **zero CPU delay**.
 - 🎛️ **Multi-Core 320kbps MP3 Transcoding** — Multi-threaded FFmpeg audio engine (`-threads 0`) with accurate `Content-Length` chunk streaming and automatic temporary file cleanup.
-- ⏳ **Sliding-Window EMA Live ETA Pill** — Displays an accurate, jitter-free countdown pill in real time (e.g. `⏳ ~3m 45s remaining (28 songs/min)`).
+- ⏳ **Sliding-Window EMA Live ETA Pill** — Displays an accurate, jitter-free countdown pill in real time (e.g. `⏳ ~26m 07s remaining (12 songs/min)`).
 - 📦 **Animated Live ZIP Packaging Modal** — Real-time visual progress counter (`Gathering files: 142/324...`, `Compressing into ZIP archive...`) when saving full playlists.
 - ♾️ **Deep Spotify Pagination (500+ Tracks)** — Automatic recursive metadata fetcher bypassing the 100-track Spotify ceiling with zero credentials needed.
+- 🛡️ **Anti-429 Multi-Client Engine** — Auto-routes through `android`, `ios`, and `mweb` player clients to eliminate YouTube bot-check rate limits.
 - ⚡ **Event-Driven Terminal Progress Bar** — Interactive console progress bars in `setup.bat` during binary installations.
 
 ---
@@ -79,6 +94,7 @@ Wait for the **`SETUP COMPLETE! [OK]`** message.
 │                    http://localhost:3001               │
 │                                                        │
 │  • In-Memory YouTube Search Engine (ytInitialData)     │
+│  • Anti-429 Multi-Client Route Selector                │
 │  • Unthrottled Node.js Player Signature Solver         │
 │  • Direct Stream Pass-Through & Multi-Core Transcoder  │
 │  • Immediate Temp File Unlinker & Lifecycle Sync       │
@@ -108,6 +124,7 @@ Wait for the **`SETUP COMPLETE! [OK]`** message.
 │   └── package.json
 ├── setup.bat                         # Automated one-time setup script
 ├── Pasooriizm.bat                    # One-click application launcher
+├── 10 songs per min.png              # Benchmark proof screenshot
 └── README.md                         # Project documentation
 ```
 
