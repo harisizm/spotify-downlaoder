@@ -1,74 +1,355 @@
 /**
  * GET /api/spotify/playlist/[id]?type=playlist|album|track
  *
- * Universal Spotify metadata endpoint.
+ * 100% Zero-Credential Deep Pagination Engine for Spotify.
  *
- * 1. If valid Spotify Developer credentials are present in .env,
- *    it uses the official Spotify Web API with full pagination.
- * 2. If NO credentials are provided (zero-config / blank .env),
- *    it automatically falls back to Spotify's public embed engine.
- *
- * Zero configuration required out of the box. No Spotify Premium needed.
+ * Automatically bootstraps an anonymous session token directly from Spotify's
+ * embed gateway and uses Spotify's GraphQL Pathfinder API to paginate through
+ * ALL songs (100, 200, 500+ tracks) without requiring ANY Spotify Developer API keys
+ * or user credentials.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
-const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
+const PATHFINDER_URL = "https://api-partner.spotify.com/pathfinder/v1/query";
+const PLAYLIST_QUERY_HASH = "a65e12194ed5fc443a1cdebed5fabe33ca5b07b987185d63c72483867ad13cb4";
+const ALBUM_QUERY_HASH = "b9bfabef66ed756e5e13f68a942deb60bd4125ec1f1be8cc42769dc0259b4b10";
+const TRACK_QUERY_HASH = "612585ae06ba435ad26369870deaae23b5c8800a256cd8a57e08eddc25a37294";
 
-const CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || "";
-const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || "";
+// In-memory token cache
+let cachedSession: { token: string; expiresAt: number } | null = null;
 
-function hasValidCredentials(): boolean {
-  return (
-    CLIENT_ID.length > 10 &&
-    CLIENT_SECRET.length > 10 &&
-    !CLIENT_ID.includes("your_spotify") &&
-    !CLIENT_SECRET.includes("your_spotify")
-  );
-}
-
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-async function getAppToken(): Promise<string | null> {
-  if (!hasValidCredentials()) return null;
-
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
-    return cachedToken.token;
+/**
+ * Bootstrap an anonymous access token from Spotify's public embed gateway
+ */
+async function getAnonymousToken(forceRefresh = false): Promise<string> {
+  const now = Date.now();
+  if (!forceRefresh && cachedSession && now < cachedSession.expiresAt - 60_000) {
+    return cachedSession.token;
   }
 
-  try {
-    const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
+  // Any public track/embed page seeds the anonymous token
+  const bootstrapUrl = "https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC";
+  const res = await fetch(bootstrapUrl, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
+    cache: "no-store",
+  });
 
-    const res = await fetch(SPOTIFY_TOKEN_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: "grant_type=client_credentials",
-    });
-
-    if (!res.ok) return null;
-
-    const data: any = await res.json();
-    cachedToken = {
-      token: data.access_token,
-      expiresAt: Date.now() + data.expires_in * 1000,
-    };
-
-    return cachedToken.token;
-  } catch {
-    return null;
+  if (!res.ok) {
+    throw new Error(`Failed to bootstrap Spotify guest session (HTTP ${res.status})`);
   }
+
+  const html = await res.text();
+  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) {
+    throw new Error("Could not parse Spotify embed bootstrap data");
+  }
+
+  const nextData = JSON.parse(match[1]);
+  const session = nextData?.props?.pageProps?.state?.settings?.session;
+  const token = session?.accessToken;
+  const expiresAt = session?.accessTokenExpirationTimestampMs || now + 3600 * 1000;
+
+  if (!token) {
+    throw new Error("Anonymous accessToken not found in Spotify embed session");
+  }
+
+  cachedSession = { token, expiresAt };
+  return token;
 }
 
 /**
- * Scrape Spotify's public embed page (zero credentials required)
+ * Make an authorized GraphQL Pathfinder query
  */
-async function fetchViaEmbed(type: string, id: string) {
+async function pathfinderFetch(
+  operationName: string,
+  sha256Hash: string,
+  variables: Record<string, any>,
+  retries = 2
+): Promise<any> {
+  let token = await getAnonymousToken();
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const params = new URLSearchParams({
+      operationName,
+      variables: JSON.stringify(variables),
+      extensions: JSON.stringify({
+        persistedQuery: { version: 1, sha256Hash },
+      }),
+    });
+
+    const res = await fetch(`${PATHFINDER_URL}?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "app-platform": "WebPlayer",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (res.status === 401 && attempt < retries) {
+      // Token expired, force bootstrap new anonymous session
+      token = await getAnonymousToken(true);
+      continue;
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Spotify Pathfinder HTTP ${res.status}: ${errText}`);
+    }
+
+    const json = await res.json();
+    if (json.errors && json.errors.length > 0) {
+      throw new Error(`GraphQL error: ${json.errors[0]?.message || "Unknown error"}`);
+    }
+
+    return json.data;
+  }
+
+  throw new Error("Max retries exceeded for Spotify request");
+}
+
+/**
+ * Fetch ALL tracks from a playlist using deep pagination
+ */
+async function fetchAllPlaylistTracks(playlistId: string) {
+  let offset = 0;
+  const limit = 100;
+  const tracks: any[] = [];
+  let playlistInfo: any = null;
+  let totalDeclared = 0;
+
+  while (true) {
+    const variables = {
+      uri: `spotify:playlist:${playlistId}`,
+      offset,
+      limit,
+      enableWatchFeedEntrypoint: false,
+    };
+
+    const data = await pathfinderFetch("fetchPlaylist", PLAYLIST_QUERY_HASH, variables);
+    const playlistV2 = data?.playlistV2;
+    if (!playlistV2) {
+      throw new Error("Playlist data not found in Spotify response");
+    }
+
+    if (!playlistInfo) {
+      const coverImages = (playlistV2.images?.items || []).map((img: any) => ({
+        url: img.sources?.[0]?.url || "",
+        width: img.sources?.[0]?.width || 300,
+        height: img.sources?.[0]?.height || 300,
+      }));
+
+      totalDeclared = playlistV2.content?.totalCount || 0;
+
+      playlistInfo = {
+        id: playlistId,
+        name: playlistV2.name || "Spotify Playlist",
+        description: playlistV2.description || null,
+        images: coverImages.length > 0 ? coverImages : [{ url: "", width: 300, height: 300 }],
+        owner: {
+          id: playlistV2.ownerV2?.data?.username || "spotify",
+          display_name: playlistV2.ownerV2?.data?.name || "Spotify",
+        },
+        tracks: { total: totalDeclared },
+        followers: { total: 0 },
+        external_urls: {
+          spotify: `https://open.spotify.com/playlist/${playlistId}`,
+        },
+      };
+    }
+
+    const items = playlistV2.content?.items || [];
+    if (items.length === 0) break;
+
+    for (const item of items) {
+      const trackData = item.itemV2?.data;
+      if (trackData && (trackData.__typename === "Track" || trackData.__typename === "Episode")) {
+        const artists = (trackData.artists?.items || []).map((a: any) => ({
+          id: a.uri?.split(":")[2] || "",
+          name: a.profile?.name || "Unknown Artist",
+        }));
+
+        const coverImages = (trackData.albumOfTrack?.coverArt?.sources || []).map((s: any) => ({
+          url: s.url,
+          width: s.width,
+          height: s.height,
+        }));
+
+        tracks.push({
+          id: trackData.uri?.split(":")[2] || trackData.id,
+          name: trackData.name,
+          artists: artists.length > 0 ? artists : [{ id: "artist", name: "Unknown Artist" }],
+          album: {
+            id: trackData.albumOfTrack?.uri?.split(":")[2] || "",
+            name: trackData.albumOfTrack?.name || "",
+            images: coverImages,
+            release_date: trackData.albumOfTrack?.date?.isoString || "",
+          },
+          duration_ms: trackData.trackDuration?.totalMilliseconds || 0,
+          track_number: tracks.length + 1,
+          explicit: Boolean(trackData.contentRating?.label === "EXPLICIT"),
+          preview_url: null,
+          external_urls: {
+            spotify: `https://open.spotify.com/track/${trackData.uri?.split(":")[2]}`,
+          },
+        });
+      }
+    }
+
+    offset += items.length;
+
+    // Stop when all declared tracks loaded or no more items returned
+    if ((totalDeclared > 0 && offset >= totalDeclared) || items.length < limit) {
+      break;
+    }
+  }
+
+  return { playlist: playlistInfo, tracks };
+}
+
+/**
+ * Fetch Album tracks using Pathfinder
+ */
+async function fetchAlbum(albumId: string) {
+  const variables = {
+    uri: `spotify:album:${albumId}`,
+    locale: "",
+    offset: 0,
+    limit: 100,
+  };
+
+  const data = await pathfinderFetch("getAlbum", ALBUM_QUERY_HASH, variables);
+  const albumUnion = data?.albumUnion;
+  if (!albumUnion) {
+    throw new Error("Album not found");
+  }
+
+  const coverImages = (albumUnion.coverArt?.sources || []).map((s: any) => ({
+    url: s.url,
+    width: s.width,
+    height: s.height,
+  }));
+
+  const artists = (albumUnion.artists?.items || []).map((a: any) => ({
+    id: a.uri?.split(":")[2] || "",
+    name: a.profile?.name || "Artist",
+  }));
+
+  const items = albumUnion.tracksV2?.items || albumUnion.tracks?.items || [];
+  const tracks = items.map((item: any, idx: number) => {
+    const t = item.track || item;
+    const tArtists = (t.artists?.items || t.artists || []).map((a: any) => ({
+      id: a.uri?.split(":")[2] || a.id || "",
+      name: a.profile?.name || a.name || "Artist",
+    }));
+
+    return {
+      id: t.uri?.split(":")[2] || t.id || `track_${idx}`,
+      name: t.name || `Track ${idx + 1}`,
+      artists: tArtists.length > 0 ? tArtists : artists,
+      album: {
+        id: albumId,
+        name: albumUnion.name || "Album",
+        images: coverImages,
+        release_date: albumUnion.date?.isoString || "",
+      },
+      duration_ms: t.duration?.totalMilliseconds || t.duration_ms || 0,
+      track_number: idx + 1,
+      explicit: Boolean(t.contentRating?.label === "EXPLICIT" || t.explicit),
+      preview_url: null,
+      external_urls: {
+        spotify: `https://open.spotify.com/track/${t.uri?.split(":")[2] || t.id}`,
+      },
+    };
+  });
+
+  const playlistInfo = {
+    id: albumId,
+    name: albumUnion.name || "Album",
+    description: `Album by ${artists.map((a: any) => a.name).join(", ")}`,
+    images: coverImages,
+    owner: { id: "artist", display_name: artists[0]?.name || "Artist" },
+    tracks: { total: tracks.length },
+    followers: { total: 0 },
+    external_urls: {
+      spotify: `https://open.spotify.com/album/${albumId}`,
+    },
+  };
+
+  return { playlist: playlistInfo, tracks };
+}
+
+/**
+ * Fetch Single Track using Pathfinder
+ */
+async function fetchTrack(trackId: string) {
+  const variables = {
+    uri: `spotify:track:${trackId}`,
+  };
+
+  const data = await pathfinderFetch("getTrack", TRACK_QUERY_HASH, variables);
+  const trackUnion = data?.trackUnion;
+  if (!trackUnion) {
+    throw new Error("Track not found");
+  }
+
+  const coverImages = (trackUnion.albumOfTrack?.coverArt?.sources || []).map((s: any) => ({
+    url: s.url,
+    width: s.width,
+    height: s.height,
+  }));
+
+  const artists = (trackUnion.firstArtist?.items || trackUnion.otherArtists?.items || []).map((a: any) => ({
+    id: a.uri?.split(":")[2] || "",
+    name: a.profile?.name || "Artist",
+  }));
+
+  const track = {
+    id: trackId,
+    name: trackUnion.name || "Track",
+    artists: artists.length > 0 ? artists : [{ id: "artist", name: "Artist" }],
+    album: {
+      id: trackUnion.albumOfTrack?.uri?.split(":")[2] || "",
+      name: trackUnion.albumOfTrack?.name || "Album",
+      images: coverImages,
+      release_date: trackUnion.albumOfTrack?.date?.isoString || "",
+    },
+    duration_ms: trackUnion.duration?.totalMilliseconds || 0,
+    track_number: trackUnion.trackNumber || 1,
+    explicit: Boolean(trackUnion.contentRating?.label === "EXPLICIT"),
+    preview_url: null,
+    external_urls: {
+      spotify: `https://open.spotify.com/track/${trackId}`,
+    },
+  };
+
+  const playlistInfo = {
+    id: trackId,
+    name: track.name,
+    description: `Track by ${track.artists.map((a: any) => a.name).join(", ")}`,
+    images: coverImages,
+    owner: { id: "artist", display_name: track.artists[0]?.name || "Artist" },
+    tracks: { total: 1 },
+    followers: { total: 0 },
+    external_urls: track.external_urls,
+  };
+
+  return { playlist: playlistInfo, tracks: [track] };
+}
+
+/**
+ * Direct Embed Scraping Fallback
+ */
+async function fetchViaEmbedFallback(type: string, id: string) {
   const url = `https://open.spotify.com/embed/${type}/${id}`;
   const res = await fetch(url, {
     headers: {
@@ -89,16 +370,12 @@ async function fetchViaEmbed(type: string, id: string) {
 
   const data = JSON.parse(match[1]);
   const entity = data?.props?.pageProps?.state?.data?.entity;
-
-  if (!entity) {
-    throw new Error("Spotify entity not found in embed data");
-  }
+  if (!entity) throw new Error("Entity not found in embed data");
 
   const coverUrl =
     entity.visualIdentity?.image?.[0]?.url ||
     entity.coverArt?.sources?.[0]?.url ||
     "";
-
   const images = coverUrl ? [{ url: coverUrl, width: 300, height: 300 }] : [];
 
   const playlistInfo = {
@@ -108,77 +385,36 @@ async function fetchViaEmbed(type: string, id: string) {
     images,
     owner: {
       id: "spotify",
-      display_name:
-        entity.artists?.[0]?.name ||
-        entity.authors?.[0]?.name ||
-        entity.subtitle ||
-        "Spotify",
+      display_name: entity.artists?.[0]?.name || entity.subtitle || "Spotify",
     },
-    tracks: {
-      total: entity.trackList?.length || 1,
-    },
-    followers: {
-      total: 0,
-    },
+    tracks: { total: entity.trackList?.length || 1 },
+    followers: { total: 0 },
     external_urls: {
       spotify: `https://open.spotify.com/${type}/${id}`,
     },
   };
 
-  let tracks: any[] = [];
-
-  if (type === "track") {
-    const artistList =
-      entity.artists?.map((a: any) => ({ id: a.id || "artist", name: a.name })) ||
-      (entity.subtitle
-        ? entity.subtitle.split(/,\s*/).map((n: string) => ({ id: "artist", name: n }))
-        : [{ id: "artist", name: "Artist" }]);
-
-    tracks = [
-      {
-        id: entity.id || id,
-        name: entity.title || entity.name || "Track",
-        artists: artistList,
-        album: {
-          id: "album",
-          name: entity.title || "Album",
-          images,
-          release_date: entity.releaseDate?.isoString || "",
-        },
-        duration_ms: entity.duration || 0,
-        track_number: 1,
-        explicit: entity.isExplicit || false,
-        preview_url: entity.audioPreview?.url || null,
-        external_urls: {
-          spotify: `https://open.spotify.com/track/${id}`,
-        },
+  const tracks = (entity.trackList || []).map((t: any, idx: number) => {
+    const trackId = t.uri?.split(":")[2] || t.uid || `track_${idx}`;
+    return {
+      id: trackId,
+      name: t.title || t.name || `Track ${idx + 1}`,
+      artists: (t.subtitle || "Artist").split(/,\s*/).map((name: string) => ({ id: "artist", name })),
+      album: {
+        id: entity.id || "album",
+        name: entity.title || entity.name || "Album",
+        images,
+        release_date: entity.releaseDate?.isoString || "",
       },
-    ];
-  } else {
-    tracks = (entity.trackList || []).map((t: any, idx: number) => {
-      const trackId = t.uri?.split(":")[2] || t.uid || `track_${idx}`;
-      return {
-        id: trackId,
-        name: t.title || t.name || `Track ${idx + 1}`,
-        artists: (t.subtitle || "Artist")
-          .split(/,\s*/)
-          .map((name: string) => ({ id: "artist", name })),
-        album: {
-          id: entity.id || "album",
-          name: entity.title || entity.name || "Album",
-          images,
-          release_date: entity.releaseDate?.isoString || "",
-        },
-        duration_ms: t.duration || 0,
-        track_number: idx + 1,
-        explicit: t.isExplicit || false,
-        preview_url: t.audioPreview?.url || null,
-        external_urls: {
-          spotify: `https://open.spotify.com/track/${trackId}`,
-        },
-      };
-    });
-  }
+      duration_ms: t.duration || 0,
+      track_number: idx + 1,
+      explicit: Boolean(t.isExplicit),
+      preview_url: null,
+      external_urls: {
+        spotify: `https://open.spotify.com/track/${trackId}`,
+      },
+    };
+  });
 
   return { playlist: playlistInfo, tracks };
 }
@@ -192,98 +428,25 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "playlist";
 
-    // Attempt 1: Try official Spotify API if developer keys exist in .env
-    const token = await getAppToken();
-
-    if (token) {
-      try {
-        if (type === "playlist") {
-          const playlistRes = await fetch(
-            `${SPOTIFY_API_BASE}/playlists/${id}?fields=id,name,description,images,owner(id,display_name),tracks(total),followers(total),external_urls`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-          if (playlistRes.ok) {
-            const playlist = await playlistRes.json();
-            const tracks: any[] = [];
-            let tracksUrl: string | null =
-              `${SPOTIFY_API_BASE}/playlists/${id}/tracks?limit=100&fields=next,total,items(added_at,track(id,name,artists(id,name),album(id,name,images,release_date),duration_ms,track_number,explicit,preview_url,external_urls))`;
-
-            while (tracksUrl) {
-              const tracksRes: Response = await fetch(tracksUrl, {
-                headers: { Authorization: `Bearer ${token}` },
-              });
-              if (!tracksRes.ok) break;
-              const data: any = await tracksRes.json();
-              const validTracks = data.items
-                .filter((item: { track: unknown }) => item.track !== null)
-                .map((item: { track: unknown }) => item.track);
-              tracks.push(...validTracks);
-              tracksUrl = data.next;
-            }
-
-            if (tracks.length > 0) {
-              return NextResponse.json({ playlist, tracks });
-            }
-            console.warn("Official API returned 0 tracks for playlist, falling back to public embed extraction...");
-          }
-        } else if (type === "album") {
-          const albumRes = await fetch(`${SPOTIFY_API_BASE}/albums/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-          if (albumRes.ok) {
-            const album = await albumRes.json();
-            const tracks = (album.tracks?.items || []).map((t: any) => ({
-              ...t,
-              album: {
-                id: album.id,
-                name: album.name,
-                images: album.images,
-                release_date: album.release_date,
-              },
-            }));
-            const playlist = {
-              id: album.id,
-              name: album.name,
-              description: `Album by ${album.artists?.map((a: any) => a.name).join(", ")}`,
-              images: album.images,
-              owner: { id: "artist", display_name: album.artists?.[0]?.name || "Artist" },
-              tracks: { total: tracks.length },
-              followers: { total: 0 },
-              external_urls: album.external_urls,
-            };
-            return NextResponse.json({ playlist, tracks });
-          }
-        } else if (type === "track") {
-          const trackRes = await fetch(`${SPOTIFY_API_BASE}/tracks/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-          if (trackRes.ok) {
-            const track = await trackRes.json();
-            const playlist = {
-              id: track.id,
-              name: track.name,
-              description: `Track by ${track.artists?.map((a: any) => a.name).join(", ")}`,
-              images: track.album?.images || [],
-              owner: { id: "artist", display_name: track.artists?.[0]?.name || "Artist" },
-              tracks: { total: 1 },
-              followers: { total: 0 },
-              external_urls: track.external_urls,
-            };
-            return NextResponse.json({ playlist, tracks: [track] });
-          }
-        }
-      } catch (apiErr) {
-        console.warn("Official API request failed, falling back to public embed:", apiErr);
+    try {
+      if (type === "playlist") {
+        const result = await fetchAllPlaylistTracks(id);
+        console.log(`✓ Deep Pagination: Successfully retrieved ${result.tracks.length} tracks for playlist "${result.playlist.name}" (Zero Credentials)`);
+        return NextResponse.json(result);
+      } else if (type === "album") {
+        const result = await fetchAlbum(id);
+        return NextResponse.json(result);
+      } else if (type === "track") {
+        const result = await fetchTrack(id);
+        return NextResponse.json(result);
       }
+    } catch (primaryErr) {
+      console.warn("Primary Pathfinder extraction failed, attempting embed fallback:", primaryErr);
     }
 
-    // Attempt 2: Zero-config fallback (public embed extraction)
-    const fallbackData = await fetchViaEmbed(type, id);
-    const isEmbedLimited = type === "playlist" && fallbackData.tracks.length >= 100;
-    return NextResponse.json({ ...fallbackData, isEmbedLimited });
+    // Embed Fallback
+    const fallbackData = await fetchViaEmbedFallback(type, id);
+    return NextResponse.json(fallbackData);
   } catch (error) {
     console.error("Spotify metadata resolution error:", error);
     return NextResponse.json(

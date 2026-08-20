@@ -18,8 +18,8 @@ node_modules/
 /dist
 worker/dist/
 worker/node_modules/
-worker/bin/yt-dlp.exe
-worker/bin/yt-dlp
+worker/bin/
+worker/*.mjs
 worker/*.js
 !worker/src/**/*.js
 
@@ -44,8 +44,7 @@ yarn-error.log*
 .pnpm-debug.log*
 *.log
 
-# Vercel & IDE
-.vercel
+# IDE
 .idea
 .vscode
 *.tsbuildinfo

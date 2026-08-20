@@ -13,6 +13,8 @@ interface LiveDownloadProgressProps {
   format: AudioFormat;
   quality: AudioQuality;
   tracks: DownloadTrack[];
+  estimatedSecondsRemaining?: number;
+  tracksPerMinute?: number;
   onPauseToggle: () => void;
   onCancel: () => void;
   onSaveFetched?: () => void;
@@ -37,24 +39,45 @@ export default function LiveDownloadProgress({
   format,
   quality,
   tracks,
+  estimatedSecondsRemaining = 0,
+  tracksPerMinute = 0,
   onPauseToggle,
   onCancel,
   onSaveFetched,
 }: LiveDownloadProgressProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [displayEtaSeconds, setDisplayEtaSeconds] = useState(estimatedSecondsRemaining);
   const [statusMessageIndex, setStatusMessageIndex] = useState(0);
   const [justFinished, setJustFinished] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  // Calculate live progress percentage
+  // Sync ETA when queue emits updated estimation
+  useEffect(() => {
+    if (estimatedSecondsRemaining > 0) {
+      setDisplayEtaSeconds(estimatedSecondsRemaining);
+    }
+  }, [estimatedSecondsRemaining]);
+
+  // Smooth seconds countdown ticker for ETA (decrements naturally by 1s without jumping)
+  useEffect(() => {
+    let etaInterval: NodeJS.Timeout;
+    if (isRunning && !isPaused) {
+      etaInterval = setInterval(() => {
+        setDisplayEtaSeconds((prev) => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => clearInterval(etaInterval);
+  }, [isRunning, isPaused]);
+
+  // Calculate live progress percentage (strictly monotonic and smooth)
   const progressPercent = useMemo(() => {
     if (totalSelected === 0) return 0;
-    // Account for partial progress of actively downloading tracks
-    const inProgressTracks = tracks.filter((t) =>
-      t.selected && ["searching", "found", "downloading", "converting"].includes(t.status)
-    );
-    const partialSum = inProgressTracks.reduce((acc, t) => acc + (t.progress || 0) / 100, 0);
-    const totalDone = completedCount + partialSum;
+    // Base is completedCount, plus bounded fraction for tracks actively in flight
+    const inProgressCount = tracks.filter((t) =>
+      t.selected && ["downloading", "converting"].includes(t.status)
+    ).length;
+    const partialSum = inProgressCount * 0.35; // gentle fractional offset for in-flight slots
+    const totalDone = completedCount + Math.min(inProgressCount * 0.5, partialSum);
     return Math.min(100, Math.max(0, (totalDone / totalSelected) * 100));
   }, [completedCount, totalSelected, tracks]);
 
@@ -113,6 +136,15 @@ export default function LiveDownloadProgress({
     const mins = Math.floor(secs / 60);
     const remSecs = secs % 60;
     return `${mins}:${remSecs < 10 ? "0" : ""}${remSecs}`;
+  };
+
+  // Format remaining ETA (e.g. ~3m 45s remaining)
+  const formatEta = (secs: number) => {
+    if (secs <= 0) return "< 5s remaining";
+    const mins = Math.floor(secs / 60);
+    const remSecs = secs % 60;
+    if (mins === 0) return `~${remSecs}s remaining`;
+    return `~${mins}m ${remSecs < 10 ? "0" : ""}${remSecs}s remaining`;
   };
 
   // Don't render if completely idle and not showing celebration
@@ -194,6 +226,22 @@ export default function LiveDownloadProgress({
             <span className={styles.chipIcon}>⏱️</span>
             <span>{formatTime(elapsedSeconds)} elapsed</span>
           </div>
+
+          {isRunning && !isPaused && (
+            <div className={`${styles.metricChip} ${styles.chipEta}`}>
+              <span className={styles.chipIcon}>⏳</span>
+              {completedCount < 2 || displayEtaSeconds <= 0 ? (
+                <span>Calculating ETA...</span>
+              ) : (
+                <>
+                  <span>{formatEta(displayEtaSeconds)}</span>
+                  {tracksPerMinute > 0 && (
+                    <span className={styles.speedSub}>({tracksPerMinute} songs/min)</span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {failedCount > 0 && (
             <div className={`${styles.metricChip} ${styles.chipError}`}>

@@ -1,14 +1,9 @@
 /**
- * Spotify Web API Client
+ * Spotify Types & Utilities
  *
- * Handles playlist fetching with full pagination (no 100-song limit),
- * URL parsing, and rate limit handling.
+ * URL parsing, formatting, and type definitions.
+ * All actual API calls go through the server-side API route at /api/spotify/playlist/[id].
  */
-
-import { getValidAccessToken } from "./spotify-auth";
-
-const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
-const PAGE_SIZE = 100; // Spotify's max per request
 
 /* ========== URL Parsing ========== */
 
@@ -56,39 +51,7 @@ export function parseSpotifyUrl(input: string): ParsedSpotifyUrl | null {
   return null;
 }
 
-/* ========== Rate-Limited Fetch ========== */
-
-async function spotifyFetch(
-  url: string,
-  accessToken: string,
-  retries = 3
-): Promise<Response> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    if (res.ok) return res;
-
-    // Rate limited, wait and retry
-    if (res.status === 429) {
-      const retryAfter = parseInt(res.headers.get("Retry-After") || "1", 10);
-      await new Promise((r) => setTimeout(r, retryAfter * 1000));
-      continue;
-    }
-
-    // Auth error, token might be expired
-    if (res.status === 401) {
-      throw new Error("AUTH_EXPIRED");
-    }
-
-    throw new Error(`Spotify API error: ${res.status} ${res.statusText}`);
-  }
-
-  throw new Error("Max retries exceeded for Spotify API request");
-}
-
-/* ========== Playlist API ========== */
+/* ========== Types ========== */
 
 export interface SpotifyImage {
   url: string;
@@ -120,11 +83,6 @@ export interface SpotifyTrack {
   external_urls: { spotify: string };
 }
 
-export interface SpotifyPlaylistTrackItem {
-  added_at: string;
-  track: SpotifyTrack | null; // null if track was removed
-}
-
 export interface SpotifyPlaylistInfo {
   id: string;
   name: string;
@@ -141,123 +99,6 @@ export interface SpotifyPlaylistInfo {
     total: number;
   };
   external_urls: { spotify: string };
-}
-
-/**
- * Get playlist metadata (name, cover, owner, track count)
- */
-export async function getPlaylistInfo(
-  playlistId: string
-): Promise<SpotifyPlaylistInfo> {
-  const token = await getValidAccessToken();
-  const res = await spotifyFetch(
-    `${SPOTIFY_API_BASE}/playlists/${playlistId}?fields=id,name,description,images,owner(id,display_name),tracks(total),followers(total),external_urls`,
-    token
-  );
-  return res.json();
-}
-
-/**
- * Fetch ALL tracks from a playlist with pagination.
- * No 100-song limit. Follows the `next` cursor until all tracks are loaded.
- *
- * @param onProgress - Callback with (loaded, total) for progress tracking
- */
-export async function getPlaylistTracks(
-  playlistId: string,
-  onProgress?: (loaded: number, total: number) => void
-): Promise<SpotifyTrack[]> {
-  const token = await getValidAccessToken();
-  const tracks: SpotifyTrack[] = [];
-
-  let url: string | null =
-    `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks?limit=${PAGE_SIZE}&fields=next,total,items(added_at,track(id,name,artists(id,name),album(id,name,images,release_date),duration_ms,track_number,explicit,preview_url,external_urls))`;
-
-  let total = 0;
-
-  while (url) {
-    const res = await spotifyFetch(url, token);
-    const data = await res.json();
-
-    if (!total) total = data.total;
-
-    const validTracks = (data.items as SpotifyPlaylistTrackItem[])
-      .filter((item) => item.track !== null)
-      .map((item) => item.track as SpotifyTrack);
-
-    tracks.push(...validTracks);
-
-    if (onProgress) {
-      onProgress(tracks.length, total);
-    }
-
-    url = data.next;
-  }
-
-  return tracks;
-}
-
-/**
- * Get album info and tracks
- */
-export async function getAlbumTracks(albumId: string): Promise<{
-  info: { name: string; images: SpotifyImage[]; artists: SpotifyArtist[] };
-  tracks: SpotifyTrack[];
-}> {
-  const token = await getValidAccessToken();
-  const res = await spotifyFetch(
-    `${SPOTIFY_API_BASE}/albums/${albumId}`,
-    token
-  );
-  const album = await res.json();
-
-  const tracks: SpotifyTrack[] = album.tracks.items.map(
-    (t: SpotifyTrack & { album?: SpotifyAlbum }) => ({
-      ...t,
-      album: {
-        id: album.id,
-        name: album.name,
-        images: album.images,
-        release_date: album.release_date,
-      },
-    })
-  );
-
-  return {
-    info: {
-      name: album.name,
-      images: album.images,
-      artists: album.artists,
-    },
-    tracks,
-  };
-}
-
-/**
- * Get a single track
- */
-export async function getTrack(trackId: string): Promise<SpotifyTrack> {
-  const token = await getValidAccessToken();
-  const res = await spotifyFetch(
-    `${SPOTIFY_API_BASE}/tracks/${trackId}`,
-    token
-  );
-  return res.json();
-}
-
-/**
- * Get the user's playlists
- */
-export async function getUserPlaylists(
-  limit = 50
-): Promise<SpotifyPlaylistInfo[]> {
-  const token = await getValidAccessToken();
-  const res = await spotifyFetch(
-    `${SPOTIFY_API_BASE}/me/playlists?limit=${limit}`,
-    token
-  );
-  const data = await res.json();
-  return data.items;
 }
 
 /* ========== Utility ========== */

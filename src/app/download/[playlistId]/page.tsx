@@ -12,9 +12,8 @@ import TrackRow from "@/components/TrackRow";
 import ProgressBar from "@/components/ProgressBar";
 import LiveDownloadProgress from "@/components/LiveDownloadProgress";
 import SpotifyButton from "@/components/SpotifyButton";
+import ZipPackagingModal from "@/components/ZipPackagingModal";
 import {
-  getPlaylistInfo,
-  getPlaylistTracks,
   type SpotifyPlaylistInfo,
   type SpotifyTrack,
 } from "@/lib/spotify-api";
@@ -25,8 +24,6 @@ import {
   type AudioQuality,
   type QueueState,
 } from "@/lib/download-queue";
-import SpotifyConnectGameModal from "@/components/SpotifyConnectGameModal";
-import { isTokenValid } from "@/lib/spotify-auth";
 import { Suspense } from "react";
 import styles from "./download.module.css";
 
@@ -44,8 +41,6 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
   const [loadingTracks, setLoadingTracks] = useState(true);
   const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: 0 });
   const [error, setError] = useState("");
-  const [isLimited, setIsLimited] = useState(false);
-  const [showConnectModal, setShowConnectModal] = useState(false);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,47 +53,36 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
   const [format, setFormat] = useState<AudioFormat>("mp3");
   const [quality, setQuality] = useState<AudioQuality>("320");
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [zipPackaging, setZipPackaging] = useState<{
+    isOpen: boolean;
+    current: number;
+    total: number;
+    stepText: string;
+  }>({
+    isOpen: false,
+    current: 0,
+    total: 0,
+    stepText: "",
+  });
 
   const queue = getDownloadQueue();
 
-  const loggedIn = isTokenValid();
-
-  // Fetch playlist data (works with or without login)
+  // Fetch playlist data via server-side API (handles full pagination)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (loggedIn && type === "playlist") {
-          // User is logged in: use their token for private + public playlists
-          const info = await getPlaylistInfo(playlistId);
-          setPlaylist(info);
-          setFolderName(info.name || "Spotify Playlist");
-          setLoadingPlaylist(false);
-
-          const allTracks = await getPlaylistTracks(
-            playlistId,
-            (loaded, total) => {
-              setLoadProgress({ loaded, total });
-            }
-          );
-          setTracks(allTracks);
-          setLoadingTracks(false);
-          queue.setTracks(allTracks);
-        } else {
-          // Universal fetcher (works for playlist, album, track without login)
-          const res = await fetch(`/api/spotify/playlist/${playlistId}?type=${type}`);
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.error || "Failed to load Spotify metadata");
-          }
-          const data = await res.json();
-          setPlaylist(data.playlist);
-          setTracks(data.tracks);
-          setFolderName(data.playlist.name || "Spotify Playlist");
-          setIsLimited(data.isEmbedLimited || false);
-          setLoadingPlaylist(false);
-          setLoadingTracks(false);
-          queue.setTracks(data.tracks);
+        const res = await fetch(`/api/spotify/playlist/${playlistId}?type=${type}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to load Spotify metadata");
         }
+        const data = await res.json();
+        setPlaylist(data.playlist);
+        setTracks(data.tracks);
+        setFolderName(data.playlist.name || "Spotify Playlist");
+        setLoadingPlaylist(false);
+        setLoadingTracks(false);
+        queue.setTracks(data.tracks);
       } catch (err) {
         console.error("Fetch data error:", err);
         setError(
@@ -236,9 +220,32 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
     queue.downloadTrackFile(id);
   };
 
-  const handleSaveZip = () => {
+  const handleSaveZip = async () => {
     const cleanFolder = folderName.trim() || playlist?.name || "Spotify_Playlist";
-    queue.downloadAllAsZip(cleanFolder, cleanFolder);
+    const total = queueTracks.filter((t) => t.status === "done" && t.blobUrl).length;
+    if (total === 0) return;
+
+    setZipPackaging({
+      isOpen: true,
+      current: 0,
+      total,
+      stepText: `Gathering 0 of ${total} audio tracks...`,
+    });
+
+    try {
+      await queue.downloadAllAsZip(cleanFolder, cleanFolder, (current, total, stepText) => {
+        setZipPackaging({
+          isOpen: true,
+          current,
+          total,
+          stepText,
+        });
+      });
+    } finally {
+      setTimeout(() => {
+        setZipPackaging((prev) => ({ ...prev, isOpen: false }));
+      }, 1200);
+    }
   };
 
   // Computed values
@@ -344,30 +351,6 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
           {/* Main content after loading */}
           {!loadingTracks && tracks.length > 0 && (
             <>
-              {isLimited && !loggedIn && (
-                <div className={styles.embedWarning}>
-                  <div className={styles.embedWarningLeft}>
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    <span>
-                      <strong>Spotify 100-Track Preview Limit:</strong> Public embed preview only loads up to 100 tracks. Connect your Spotify account to bypass the limit and load all {playlist?.tracks?.total || "127+"} songs.
-                    </span>
-                  </div>
-                  <button
-                    className={styles.loginBannerBtn}
-                    onClick={() => setShowConnectModal(true)}
-                  >
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.5 17.3c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.3-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9zm1.5-3.3c-.3.4-.8.5-1.2.3-3-1.8-7.5-2.4-11-1.3-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 4-1.2 9-.6 12.4 1.5.4.2.5.7.3 1zm.1-3.4C15.5 8.4 9.4 8.2 5.5 9.4c-.6.2-1.2-.2-1.4-.7-.2-.6.2-1.2.7-1.4 4.5-1.4 11.2-1.1 15.3 1.3.5.3.7 1 .4 1.5-.3.5-1 .7-1.4.4z"/>
-                    </svg>
-                    Connect with Spotify ({playlist?.tracks?.total || "127+"} Songs)
-                  </button>
-                </div>
-              )}
-
               {/* Folder / Playlist Naming Settings */}
               <div className={styles.folderSettings}>
                 <span className={styles.folderLabel}>
@@ -531,6 +514,8 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
                 format={format}
                 quality={quality}
                 tracks={queueTracks}
+                estimatedSecondsRemaining={queueState.estimatedSecondsRemaining}
+                tracksPerMinute={queueState.tracksPerMinute}
                 onPauseToggle={handlePause}
                 onCancel={handleCancel}
                 onSaveFetched={handleSaveFetchedTillNow}
@@ -741,10 +726,13 @@ function DownloadContent({ playlistId }: { playlistId: string }) {
         </div>
       )}
 
-      {/* Spotify Connect Preview Modal */}
-      <SpotifyConnectGameModal
-        isOpen={showConnectModal}
-        onClose={() => setShowConnectModal(false)}
+      {/* Animated Live ZIP Packaging Modal */}
+      <ZipPackagingModal
+        isOpen={zipPackaging.isOpen}
+        current={zipPackaging.current}
+        total={zipPackaging.total}
+        stepText={zipPackaging.stepText}
+        playlistName={folderName.trim() || playlist?.name || "Spotify Playlist"}
       />
 
       <Footer />

@@ -3,7 +3,6 @@ import { Response } from "express";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import ffmpegPath from "ffmpeg-static";
 
 export type AudioFormat = "mp3" | "m4a" | "opus" | "wav";
 export type AudioQuality = "128" | "192" | "256" | "320";
@@ -15,38 +14,30 @@ export interface StreamAudioOptions {
   res: Response;
 }
 
+const PROCESS_TIMEOUT_MS = 60_000; // 60s timeout
+
 /**
- * Determine the executable path for yt-dlp
+ * Determine the executable path for yt-dlp across any working directory
  */
 function getYtDlpPath(): string {
-  if (fs.existsSync("/usr/local/bin/yt-dlp")) return "/usr/local/bin/yt-dlp";
-  if (fs.existsSync("/usr/bin/yt-dlp")) return "/usr/bin/yt-dlp";
+  const candidates = [
+    path.resolve(process.cwd(), "worker", "bin", "yt-dlp.exe"),
+    path.resolve(process.cwd(), "bin", "yt-dlp.exe"),
+    path.resolve(process.cwd(), "worker", "bin", "yt-dlp"),
+    path.resolve(process.cwd(), "bin", "yt-dlp"),
+    "/usr/local/bin/yt-dlp",
+    "/usr/bin/yt-dlp",
+  ];
 
-  const localBinExe = path.resolve(process.cwd(), "bin", "yt-dlp.exe");
-  if (fs.existsSync(localBinExe)) return localBinExe;
-
-  const localBinLinux = path.resolve(process.cwd(), "bin", "yt-dlp");
-  if (fs.existsSync(localBinLinux)) return localBinLinux;
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
 
   return process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
 }
 
 /**
- * Determine the directory path for FFmpeg executable
- */
-function getFfmpegDir(): string {
-  if (fs.existsSync("/usr/bin/ffmpeg")) return "/usr/bin";
-  if (fs.existsSync("/usr/local/bin/ffmpeg")) return "/usr/local/bin";
-
-  if (ffmpegPath && fs.existsSync(ffmpegPath)) {
-    return path.dirname(ffmpegPath);
-  }
-  return "";
-}
-
-/**
- * Download and convert audio from YouTube, streaming the verified file to the client.
- * Runs locally using the user's residential IP — no cookies or proxy needed.
+ * High-performance audio streaming engine with automatic temp cleanup
  */
 export function streamAudioFromYouTube({
   youtubeId,
@@ -57,7 +48,7 @@ export function streamAudioFromYouTube({
   return new Promise((resolve, reject) => {
     const youtubeUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
     const ytDlpPath = getYtDlpPath();
-    const ffmpegDir = getFfmpegDir();
+    const nodeRuntimeArg = `node:${process.execPath}`;
 
     const mimeTypes: Record<AudioFormat, string> = {
       mp3: "audio/mpeg",
@@ -66,101 +57,213 @@ export function streamAudioFromYouTube({
       wav: "audio/wav",
     };
 
-    const ext = format === "opus" ? "opus" : format === "m4a" ? "m4a" : format === "wav" ? "wav" : "mp3";
-    const tempFileId = `spotdown_${youtubeId}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const tempBasePath = path.join(os.tmpdir(), tempFileId);
-    const finalFilePath = `${tempBasePath}.${ext}`;
+    const isDirectPassThrough = format === "m4a" || format === "opus";
 
-    const ytdlpArgs = [
-      "--extractor-args", "youtube:player_client=ios,android",
-      "-f", "bestaudio/best",
-      "--no-playlist",
-      "--no-warnings",
-      "--geo-bypass",
-      "-x",
-      "--audio-format", ext,
-      "--audio-quality", format === "wav" ? "0" : `${quality}k`,
-      "-o", `${tempBasePath}.%(ext)s`,
-    ];
+    if (isDirectPassThrough) {
+      // 1. Direct in-memory stream for M4A & OPUS (0 bytes to disk)
+      // Uses android,ios,mweb client args to bypass YouTube 429 Bot Detection
+      const formatSpec =
+        format === "m4a"
+          ? "140/251/18/ba[ext=m4a]/ba/b"
+          : "251/140/18/ba[ext=webm]/ba/b";
 
-    if (ffmpegDir) {
-      ytdlpArgs.push("--ffmpeg-location", ffmpegDir);
-    }
+      const ytdlpArgs = [
+        "--js-runtimes", nodeRuntimeArg,
+        "--extractor-args", "youtube:player_client=android,ios,mweb",
+        "-f", formatSpec,
+        "--concurrent-fragments", "5",
+        "--buffer-size", "16M",
+        "--socket-timeout", "15",
+        "--retries", "3",
+        "--fragment-retries", "3",
+        "--no-playlist",
+        "--no-warnings",
+        "--geo-bypass",
+        "-o", "-",
+        youtubeUrl,
+      ];
 
-    ytdlpArgs.push(youtubeUrl);
+      console.log(`[AudioProcessor] Direct in-memory stream for ${youtubeId} (${format}) -> client`);
+      const startMs = Date.now();
 
-    console.log(`[AudioProcessor] Starting audio fetch for ${youtubeId} (${format} ${quality}k) -> ${finalFilePath}`);
-    const startMs = Date.now();
+      let ytdlp: any;
+      let isSettled = false;
 
-    let ytdlp: any;
-    try {
-      ytdlp = spawn(ytDlpPath, ytdlpArgs);
-    } catch (spawnErr) {
-      console.error("[AudioProcessor] Failed to spawn yt-dlp:", spawnErr);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to initialize audio extraction engine." });
-      }
-      return reject(spawnErr);
-    }
+      const killProcess = () => {
+        try {
+          if (ytdlp) ytdlp.kill("SIGKILL");
+        } catch {}
+      };
 
-    let stderrOutput = "";
-    ytdlp.stderr.on("data", (d: Buffer) => {
-      stderrOutput += d.toString();
-    });
+      const timeoutTimer = setTimeout(() => {
+        if (isSettled) return;
+        isSettled = true;
+        killProcess();
+        if (!res.headersSent) res.status(504).json({ error: "Audio extraction timed out." });
+        reject(new Error("Stream timed out"));
+      }, PROCESS_TIMEOUT_MS);
 
-    const cleanupTemp = () => {
       try {
-        if (fs.existsSync(finalFilePath)) {
-          fs.unlinkSync(finalFilePath);
-        }
-      } catch {}
-    };
-
-    ytdlp.on("close", (code: number) => {
-      const durationSec = ((Date.now() - startMs) / 1000).toFixed(1);
-
-      if (code !== 0 || !fs.existsSync(finalFilePath)) {
-        console.error(`[AudioProcessor] yt-dlp failed (code ${code}) in ${durationSec}s. Stderr:`, stderrOutput);
-        cleanupTemp();
-        if (!res.headersSent) {
-          res.status(500).json({ error: `Audio extraction failed (code ${code})` });
-        }
-        return reject(new Error(`yt-dlp exited with code ${code}`));
+        ytdlp = spawn(ytDlpPath, ytdlpArgs);
+      } catch (spawnErr) {
+        return reject(spawnErr);
       }
 
-      const stat = fs.statSync(finalFilePath);
-      console.log(`[AudioProcessor] Successfully converted ${youtubeId} in ${durationSec}s (${(stat.size / 1024 / 1024).toFixed(2)} MB). Streaming to client...`);
-
-      res.setHeader("Content-Type", mimeTypes[format] || "audio/mpeg");
-      res.setHeader("Content-Length", stat.size.toString());
+      res.setHeader("Content-Type", mimeTypes[format] || "audio/mp4");
+      res.setHeader("Transfer-Encoding", "chunked");
       res.setHeader("Accept-Ranges", "bytes");
 
-      const readStream = fs.createReadStream(finalFilePath);
-      readStream.on("error", (streamErr) => {
-        console.warn("[AudioProcessor] ReadStream notice:", streamErr.message);
-        cleanupTemp();
+      res.on("close", () => {
+        killProcess();
       });
+
+      ytdlp.stdout.pipe(res);
+
+      ytdlp.on("close", (code: number) => {
+        if (isSettled) return;
+        clearTimeout(timeoutTimer);
+        isSettled = true;
+        const durationSec = ((Date.now() - startMs) / 1000).toFixed(1);
+        if (code === 0) {
+          console.log(`[AudioProcessor] Streamed ${youtubeId} (${format}) in ${durationSec}s`);
+          resolve();
+        } else {
+          reject(new Error(`yt-dlp exited with code ${code}`));
+        }
+      });
+
+      ytdlp.on("error", (err: Error) => {
+        if (isSettled) return;
+        isSettled = true;
+        clearTimeout(timeoutTimer);
+        killProcess();
+        reject(err);
+      });
+    } else {
+      // 2. High-speed multi-core transcode for MP3 & WAV with immediate disk cleanup
+      const tempId = `spotdown_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const tempDir = os.tmpdir();
+      const tempBasePath = path.join(tempDir, tempId);
+      const ext = format === "mp3" ? "mp3" : "wav";
+      const expectedOutput = `${tempBasePath}.${ext}`;
+
+      const ytdlpArgs = [
+        "--js-runtimes", nodeRuntimeArg,
+        "--extractor-args", "youtube:player_client=android,ios,mweb",
+        "-f", "251/140/18/ba/b",
+        "--concurrent-fragments", "5",
+        "--buffer-size", "16M",
+        "--socket-timeout", "15",
+        "--retries", "3",
+        "--fragment-retries", "3",
+        "--no-playlist",
+        "--no-warnings",
+        "--no-part",
+        "--geo-bypass",
+        "-x",
+        "--audio-format", ext,
+        "--audio-quality", format === "wav" ? "0" : `${quality}k`,
+        "--postprocessor-args", "ExtractAudio:-threads 0",
+        "-o", `${tempBasePath}.%(ext)s`,
+        youtubeUrl,
+      ];
+
+      console.log(`[AudioProcessor] Processing ${youtubeId} (${format} ${quality}k) via all CPU cores`);
+      const startMs = Date.now();
+
+      let ytdlp: any;
+      let isSettled = false;
+
+      const cleanupFiles = () => {
+        try {
+          const files = fs.readdirSync(tempDir);
+          for (const file of files) {
+            if (file.startsWith(tempId)) {
+              fs.unlinkSync(path.join(tempDir, file));
+            }
+          }
+        } catch {}
+      };
+
+      const killProcess = () => {
+        try {
+          if (ytdlp) ytdlp.kill("SIGKILL");
+        } catch {}
+        cleanupFiles();
+      };
+
+      const timeoutTimer = setTimeout(() => {
+        if (isSettled) return;
+        isSettled = true;
+        killProcess();
+        if (!res.headersSent) res.status(504).json({ error: "Audio extraction timed out." });
+        reject(new Error("Audio extraction timed out"));
+      }, PROCESS_TIMEOUT_MS);
+
+      try {
+        ytdlp = spawn(ytDlpPath, ytdlpArgs);
+      } catch (spawnErr) {
+        cleanupFiles();
+        return reject(spawnErr);
+      }
 
       res.on("close", () => {
-        readStream.destroy();
-        cleanupTemp();
+        killProcess();
       });
 
-      res.on("finish", () => {
-        cleanupTemp();
-        resolve();
+      ytdlp.on("close", (code: number) => {
+        if (isSettled) return;
+        clearTimeout(timeoutTimer);
+
+        if (code !== 0) {
+          isSettled = true;
+          cleanupFiles();
+          return reject(new Error(`yt-dlp exited with code ${code}`));
+        }
+
+        // Locate generated audio file
+        let finalFile = expectedOutput;
+        if (!fs.existsSync(finalFile)) {
+          const found = fs.readdirSync(tempDir).find((f) => f.startsWith(tempId) && f.endsWith(`.${ext}`));
+          if (found) finalFile = path.join(tempDir, found);
+        }
+
+        if (!fs.existsSync(finalFile)) {
+          isSettled = true;
+          cleanupFiles();
+          return reject(new Error(`Output audio file not found: ${expectedOutput}`));
+        }
+
+        const stat = fs.statSync(finalFile);
+        res.setHeader("Content-Type", mimeTypes[format] || "audio/mpeg");
+        res.setHeader("Content-Length", stat.size.toString());
+        res.setHeader("Accept-Ranges", "bytes");
+
+        const readStream = fs.createReadStream(finalFile);
+        readStream.pipe(res);
+
+        readStream.on("end", () => {
+          isSettled = true;
+          const durationSec = ((Date.now() - startMs) / 1000).toFixed(1);
+          console.log(`[AudioProcessor] Streamed ${youtubeId} (${format} ${quality}k) in ${durationSec}s`);
+          cleanupFiles();
+          resolve();
+        });
+
+        readStream.on("error", (streamErr) => {
+          isSettled = true;
+          cleanupFiles();
+          reject(streamErr);
+        });
       });
 
-      readStream.pipe(res);
-    });
-
-    ytdlp.on("error", (err: Error) => {
-      console.error("[AudioProcessor] yt-dlp process error:", err);
-      cleanupTemp();
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Download process encountered an error." });
-      }
-      reject(err);
-    });
+      ytdlp.on("error", (err: Error) => {
+        if (isSettled) return;
+        isSettled = true;
+        clearTimeout(timeoutTimer);
+        killProcess();
+        reject(err);
+      });
+    }
   });
 }

@@ -1,6 +1,5 @@
 import { downloadZip } from "client-zip";
 import type { SpotifyTrack } from "./spotify-api";
-import { logAnonymousDownload } from "./stats-store";
 
 /* ========== Types ========== */
 
@@ -43,6 +42,9 @@ export interface QueueState {
   completedCount: number;
   failedCount: number;
   totalSelected: number;
+  estimatedSecondsRemaining: number;
+  tracksPerMinute: number;
+  avgSecondsPerTrack: number;
 }
 
 export type QueueEvent =
@@ -58,7 +60,7 @@ type QueueListener = (event: QueueEvent) => void;
 const WORKER_API_URL =
   process.env.NEXT_PUBLIC_WORKER_API_URL || "http://localhost:3001";
 const MAX_RETRIES = 3;
-const DEFAULT_CONCURRENCY = 3;
+const DEFAULT_CONCURRENCY = 6;
 
 /* ========== Queue Manager ========== */
 
@@ -68,6 +70,8 @@ export class DownloadQueueManager {
   private activeDownloads = 0;
   private abortControllers: Map<string, AbortController> = new Map();
   private queueIndex = 0;
+  private lookaheadRunning = false;
+  private recentTrackDurations: number[] = [];
 
   constructor() {
     this.state = {
@@ -80,6 +84,9 @@ export class DownloadQueueManager {
       completedCount: 0,
       failedCount: 0,
       totalSelected: 0,
+      estimatedSecondsRemaining: 0,
+      tracksPerMinute: 0,
+      avgSecondsPerTrack: 0,
     };
   }
 
@@ -263,13 +270,30 @@ export class DownloadQueueManager {
     this.state.isPaused = false;
     this.queueIndex = 0;
     this.activeDownloads = 0;
+    this.recentTrackDurations = [];
+    this.state.isPaused = false;
+    this.queueIndex = 0;
+    this.activeDownloads = 0;
+    this.recentTrackDurations = [];
+    this.state.estimatedSecondsRemaining = 0;
+    this.state.tracksPerMinute = 0;
+
     this.emit({
       type: "queue-state",
-      state: { isRunning: true, isPaused: false, completedCount: this.state.completedCount },
+      state: {
+        isRunning: true,
+        isPaused: false,
+        completedCount: this.state.completedCount,
+        estimatedSecondsRemaining: 0,
+        tracksPerMinute: 0,
+      },
     });
 
     // Fill up to concurrency limit
     this.processNext();
+
+    // Start background lookahead pre-search
+    this.runLookaheadPreSearch();
   }
 
   pause(): void {
@@ -281,11 +305,13 @@ export class DownloadQueueManager {
     this.state.isPaused = false;
     this.emit({ type: "queue-state", state: { isPaused: false } });
     this.processNext();
+    this.runLookaheadPreSearch();
   }
 
   cancel(): void {
     this.state.isRunning = false;
     this.state.isPaused = false;
+    this.lookaheadRunning = false;
 
     // Abort all active downloads
     this.abortControllers.forEach((controller) => controller.abort());
@@ -302,7 +328,113 @@ export class DownloadQueueManager {
 
     this.emit({
       type: "queue-state",
-      state: { isRunning: false, isPaused: false },
+      state: { isRunning: false, isPaused: false, estimatedSecondsRemaining: 0 },
+    });
+  }
+
+  /**
+   * Background lookahead pre-searcher: resolves upcoming track video IDs in parallel
+   */
+  private async runLookaheadPreSearch(): Promise<void> {
+    if (this.lookaheadRunning || !this.state.isRunning || this.state.isPaused) return;
+    this.lookaheadRunning = true;
+
+    try {
+      while (this.state.isRunning && !this.state.isPaused) {
+        const pendingTracks = this.state.tracks
+          .filter((t) => t.selected && !t.youtubeId && t.status === "queued")
+          .slice(0, 5);
+
+        if (pendingTracks.length === 0) break;
+
+        await Promise.all(
+          pendingTracks.map(async (track) => {
+            if (track.youtubeId || !this.state.isRunning) return;
+            try {
+              const controller = new AbortController();
+              const result = await this.searchYouTube(track.spotifyTrack, controller.signal);
+              if (result && result.videoId) {
+                track.youtubeId = result.videoId;
+                track.youtubeTitle = result.title;
+                this.updateTrack(track.id, {
+                  youtubeId: result.videoId,
+                  youtubeTitle: result.title,
+                });
+              }
+            } catch {}
+          })
+        );
+
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    } finally {
+      this.lookaheadRunning = false;
+    }
+  }
+
+  /**
+   * Recalculate remaining time and songs/min with smooth Exponential Moving Average
+   * Only calculates once at least 2 real tracks have completed to ensure accurate network measurement.
+   */
+  private updateEta(trackDurationSec?: number): void {
+    if (trackDurationSec !== undefined && trackDurationSec > 0.5) {
+      this.recentTrackDurations.push(trackDurationSec);
+      if (this.recentTrackDurations.length > 10) {
+        this.recentTrackDurations.shift();
+      }
+    }
+
+    const remainingTracks = Math.max(
+      0,
+      this.state.totalSelected - this.state.completedCount - this.state.failedCount
+    );
+
+    if (remainingTracks === 0) {
+      this.state.estimatedSecondsRemaining = 0;
+      this.state.tracksPerMinute = 0;
+      return;
+    }
+
+    // Require at least 2 measured track completions before calculating runtime ETA
+    if (this.recentTrackDurations.length < 2) {
+      this.state.estimatedSecondsRemaining = 0;
+      this.state.tracksPerMinute = 0;
+      this.emit({
+        type: "queue-state",
+        state: {
+          estimatedSecondsRemaining: 0,
+          tracksPerMinute: 0,
+        },
+      });
+      return;
+    }
+
+    const sum = this.recentTrackDurations.reduce((a, b) => a + b, 0);
+    const avgDuration = sum / this.recentTrackDurations.length;
+
+    const concurrency = Math.max(1, this.state.concurrency);
+    const effectiveThroughput = concurrency / Math.max(avgDuration, 0.8);
+    const rawSec = remainingTracks / effectiveThroughput;
+
+    // Smooth Exponential Moving Average to prevent sudden jumps
+    if (this.state.estimatedSecondsRemaining > 0) {
+      this.state.estimatedSecondsRemaining = Math.round(
+        0.8 * this.state.estimatedSecondsRemaining + 0.2 * rawSec
+      );
+    } else {
+      this.state.estimatedSecondsRemaining = Math.round(rawSec);
+    }
+
+    this.state.avgSecondsPerTrack = Number(avgDuration.toFixed(1));
+    this.state.tracksPerMinute = Math.round(effectiveThroughput * 60);
+
+    this.emit({
+      type: "queue-state",
+      state: {
+        estimatedSecondsRemaining: this.state.estimatedSecondsRemaining,
+        tracksPerMinute: this.state.tracksPerMinute,
+        avgSecondsPerTrack: this.state.avgSecondsPerTrack,
+      },
     });
   }
 
@@ -327,55 +459,64 @@ export class DownloadQueueManager {
     this.processTrack(track);
   }
 
-  /* ---- Internal Processing ---- */
-
   private processNext(): void {
     if (!this.state.isRunning || this.state.isPaused) return;
 
-    while (
-      this.activeDownloads < this.state.concurrency &&
-      this.queueIndex < this.state.tracks.length
-    ) {
-      const track = this.state.tracks[this.queueIndex];
-      this.queueIndex++;
+    while (this.activeDownloads < this.state.concurrency) {
+      const nextTrack = this.state.tracks.find(
+        (t) => t.selected && t.status === "queued"
+      );
 
-      if (!track.selected || track.status === "done") continue;
+      if (!nextTrack) break;
 
-      this.processTrack(track);
+      // Mark immediately as searching to prevent other loop iterations from picking the same track
+      this.updateTrack(nextTrack.id, { status: "searching", progress: 5, error: undefined });
+      this.processTrack(nextTrack);
     }
   }
 
   private async processTrack(track: DownloadTrack): Promise<void> {
     this.activeDownloads++;
+    const trackStartMs = Date.now();
 
     const controller = new AbortController();
     this.abortControllers.set(track.id, controller);
 
     try {
-      // Step 1: Search YouTube
-      this.updateTrack(track.id, { status: "searching", progress: 10 });
+      // Step 1: Search YouTube (or use pre-resolved videoId)
+      let videoId = track.youtubeId;
+      if (!videoId) {
+        this.updateTrack(track.id, { status: "searching", progress: 10, error: undefined });
 
-      const searchResult = await this.searchYouTube(
-        track.spotifyTrack,
-        controller.signal
-      );
+        const searchResult = await this.searchYouTube(
+          track.spotifyTrack,
+          controller.signal
+        );
 
-      if (!searchResult) {
-        throw new Error("No matching video found on YouTube");
+        if (!searchResult || !searchResult.videoId) {
+          throw new Error("No matching video found on YouTube");
+        }
+
+        videoId = searchResult.videoId;
+        this.updateTrack(track.id, {
+          status: "found",
+          progress: 25,
+          youtubeId: searchResult.videoId,
+          youtubeTitle: searchResult.title,
+        });
+      } else {
+        this.updateTrack(track.id, {
+          status: "found",
+          progress: 25,
+          error: undefined,
+        });
       }
-
-      this.updateTrack(track.id, {
-        status: "found",
-        progress: 25,
-        youtubeId: searchResult.videoId,
-        youtubeTitle: searchResult.title,
-      });
 
       // Step 2: Download & convert
       this.updateTrack(track.id, { status: "downloading", progress: 30 });
 
       const audioBlob = await this.downloadAudio(
-        searchResult.videoId,
+        videoId,
         track.id,
         controller.signal
       );
@@ -394,6 +535,9 @@ export class DownloadQueueManager {
       });
 
       this.state.completedCount++;
+      const durationSec = (Date.now() - trackStartMs) / 1000;
+      this.updateEta(durationSec);
+
       this.emit({
         type: "queue-state",
         state: { completedCount: this.state.completedCount },
@@ -406,24 +550,27 @@ export class DownloadQueueManager {
 
       if (track.retryCount < MAX_RETRIES) {
         track.retryCount++;
-        this.updateTrack(track.id, { status: "queued", progress: 0 });
+        this.updateTrack(track.id, {
+          status: "queued",
+          progress: 0,
+          error: `Retrying (${track.retryCount}/${MAX_RETRIES})...`,
+        });
         // Exponential backoff
         await new Promise((r) =>
-          setTimeout(r, Math.pow(2, track.retryCount) * 1000)
+          setTimeout(r, Math.min(1000 * track.retryCount, 3000))
         );
-        this.processTrack(track);
-        return; // Don't decrement activeDownloads since we're retrying
+      } else {
+        this.updateTrack(track.id, { status: "error", error: message });
+        this.state.failedCount++;
+        this.updateEta();
+        this.emit({
+          type: "queue-state",
+          state: { failedCount: this.state.failedCount },
+        });
       }
-
-      this.updateTrack(track.id, { status: "error", error: message });
-      this.state.failedCount++;
-      this.emit({
-        type: "queue-state",
-        state: { failedCount: this.state.failedCount },
-      });
     } finally {
       this.abortControllers.delete(track.id);
-      this.activeDownloads--;
+      this.activeDownloads = Math.max(0, this.activeDownloads - 1);
 
       // Check if all done
       const allProcessed = this.state.tracks
@@ -432,8 +579,9 @@ export class DownloadQueueManager {
 
       if (allProcessed) {
         this.state.isRunning = false;
+        this.state.estimatedSecondsRemaining = 0;
         this.emit({ type: "all-complete" });
-        this.emit({ type: "queue-state", state: { isRunning: false } });
+        this.emit({ type: "queue-state", state: { isRunning: false, estimatedSecondsRemaining: 0 } });
       } else {
         this.processNext();
       }
@@ -449,6 +597,11 @@ export class DownloadQueueManager {
     const artistName = (track.artists || []).map((a) => a.name).join(", ") || "Unknown Artist";
     const albumName = track.album?.name || "";
 
+    const localController = new AbortController();
+    const timeoutId = setTimeout(() => localController.abort(new Error("Search timed out after 20s")), 20_000);
+    const onParentAbort = () => localController.abort(new Error("Cancelled"));
+    signal.addEventListener("abort", onParentAbort);
+
     try {
       const res = await fetch(`${WORKER_API_URL}/api/search`, {
         method: "POST",
@@ -459,10 +612,13 @@ export class DownloadQueueManager {
           album: albumName,
           duration_ms: track.duration_ms || 0,
         }),
-        signal,
+        signal: localController.signal,
       });
 
       if (!res.ok) {
+        if (res.status === 429) {
+          throw new Error("Worker rate limit reached. Retrying...");
+        }
         throw new Error(`Search failed: ${res.statusText}`);
       }
 
@@ -472,10 +628,16 @@ export class DownloadQueueManager {
       return { videoId: data.videoId, title: data.title };
     } catch (err: any) {
       if (signal.aborted) throw err;
+      if (err.name === "AbortError" || err.message?.includes("timed out")) {
+        throw new Error("Search timed out after 20s. Retrying...");
+      }
       if (err.name === "TypeError" || err.message?.includes("fetch")) {
         throw new Error("Download engine disconnected. Please ensure the backend worker is running.");
       }
       throw err;
+    } finally {
+      clearTimeout(timeoutId);
+      signal.removeEventListener("abort", onParentAbort);
     }
   }
 
@@ -490,21 +652,38 @@ export class DownloadQueueManager {
       quality: this.state.quality,
     });
 
+    const localController = new AbortController();
+    const timeoutId = setTimeout(() => localController.abort(new Error("Download timed out after 60s")), 60_000);
+    const onParentAbort = () => localController.abort(new Error("Cancelled"));
+    signal.addEventListener("abort", onParentAbort);
+
     let res: Response;
     try {
       res = await fetch(`${WORKER_API_URL}/api/download?${params}`, {
-        signal,
+        signal: localController.signal,
       });
 
       if (!res.ok) {
-        throw new Error(`Download failed: ${res.statusText}`);
+        if (res.status === 429) {
+          throw new Error("Worker rate limit reached. Retrying...");
+        }
+        if (res.status === 504) {
+          throw new Error("Audio extraction timed out on worker. Retrying...");
+        }
+        throw new Error(`Download failed (HTTP ${res.status}): ${res.statusText}`);
       }
     } catch (err: any) {
       if (signal.aborted) throw err;
+      if (err.name === "AbortError" || err.message?.includes("timed out")) {
+        throw new Error("Download timed out after 60s");
+      }
       if (err.name === "TypeError" || err.message?.includes("fetch")) {
         throw new Error("Download engine disconnected. Please ensure the backend worker is running.");
       }
       throw err;
+    } finally {
+      clearTimeout(timeoutId);
+      signal.removeEventListener("abort", onParentAbort);
     }
 
     // Read response stream
@@ -557,19 +736,6 @@ export class DownloadQueueManager {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-
-    // Record anonymous download event
-    logAnonymousDownload({
-      type: "track",
-      title: track.spotifyTrack.name || "Track",
-      artist: (track.spotifyTrack.artists || []).map((a) => a.name).join(", "),
-      tracksCount: 1,
-      format: track.downloadedFormat || this.state.format,
-      quality: track.downloadedQuality || this.state.quality,
-      sizeBytes: 8500000,
-      durationSeconds: 4,
-      status: "completed",
-    });
   }
 
   /**
@@ -593,18 +759,28 @@ export class DownloadQueueManager {
   }
 
   /**
-   * Package all completed tracks into a single ZIP file and trigger download
+   * Package all completed tracks into a single ZIP file with live progress tracking
    */
-  async downloadAllAsZip(playlistName = "Spotify Playlist", customFolderName?: string): Promise<void> {
+  async downloadAllAsZip(
+    playlistName = "Spotify Playlist",
+    customFolderName?: string,
+    onProgress?: (current: number, total: number, stepText: string) => void
+  ): Promise<void> {
     const completed = this.state.tracks.filter((t) => t.status === "done" && t.blobUrl);
     if (completed.length === 0) return;
 
+    const total = completed.length;
     const folderPrefix = customFolderName ? `${customFolderName.replace(/[<>:"/\\|?*]/g, "").trim()}/` : "";
 
+    onProgress?.(0, total, `Reading 0 of ${total} audio tracks...`);
+
+    let gathered = 0;
     const files = await Promise.all(
       completed.map(async (track) => {
         const res = await fetch(track.blobUrl!);
         const blob = await res.blob();
+        gathered++;
+        onProgress?.(gathered, total, `Gathering files (${gathered}/${total})...`);
         return {
           name: `${folderPrefix}${this.getFilename(track, true)}`,
           lastModified: new Date(),
@@ -613,7 +789,11 @@ export class DownloadQueueManager {
       })
     );
 
+    onProgress?.(total, total, `Compressing ${total} songs into ZIP archive...`);
+
     const zipBlob = await downloadZip(files).blob();
+    onProgress?.(total, total, "Triggering download to your device...");
+
     const zipUrl = URL.createObjectURL(zipBlob);
     const a = document.createElement("a");
     a.href = zipUrl;
@@ -623,18 +803,6 @@ export class DownloadQueueManager {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(zipUrl), 60000);
-
-    // Record anonymous playlist download event
-    logAnonymousDownload({
-      type: "playlist",
-      title: playlistName,
-      tracksCount: completed.length,
-      format: this.state.format,
-      quality: this.state.quality,
-      sizeBytes: zipBlob.size,
-      durationSeconds: Math.round(completed.length * 3.5),
-      status: "completed",
-    });
   }
 
   /**

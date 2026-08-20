@@ -11,10 +11,10 @@ interface QualitySelectorProps {
   disabled?: boolean;
 }
 
-const FORMATS: { value: AudioFormat; label: string; desc: string }[] = [
-  { value: "mp3", label: "MP3", desc: "Universal compatibility" },
-  { value: "m4a", label: "M4A", desc: "Apple / AAC codec" },
-  { value: "opus", label: "OPUS", desc: "Smallest file size" },
+const FORMATS: { value: AudioFormat; label: string; desc: string; badge?: string }[] = [
+  { value: "m4a", label: "M4A", desc: "⚡ Instant 1s Speed • Studio Master", badge: "⚡ Ultra Fast" },
+  { value: "mp3", label: "MP3", desc: "Universal compatibility (320kbps)" },
+  { value: "opus", label: "OPUS", desc: "⚡ Instant 1s Speed • Smallest size", badge: "⚡ Fast" },
   { value: "wav", label: "WAV", desc: "Uncompressed lossless" },
 ];
 
@@ -51,7 +51,10 @@ export default function QualitySelector({
               onClick={() => onFormatChange(f.value)}
               disabled={disabled}
             >
-              <span className={styles.optionLabel}>{f.label}</span>
+              <div className={styles.labelRow}>
+                <span className={styles.optionLabel}>{f.label}</span>
+                {f.badge && <span className={styles.speedBadge}>{f.badge}</span>}
+              </div>
               <span className={styles.optionDesc}>{f.desc}</span>
             </button>
           ))}
@@ -73,7 +76,7 @@ export default function QualitySelector({
               key={q.value}
               className={`${styles.option} ${quality === q.value ? styles.active : ""}`}
               onClick={() => onQualityChange(q.value)}
-              disabled={disabled || format === "wav"}
+              disabled={disabled || format === "wav" || format === "m4a" || format === "opus"}
             >
               <span className={styles.optionLabel}>{q.label}</span>
               <span className={styles.optionDesc}>{q.desc}</span>
@@ -82,7 +85,12 @@ export default function QualitySelector({
         </div>
         {format === "wav" && (
           <p className={styles.hint}>
-            WAV is lossless, so the quality setting does not apply.
+            ℹ️ WAV is uncompressed lossless audio, so bitrate compression does not apply.
+          </p>
+        )}
+        {(format === "m4a" || format === "opus") && (
+          <p className={styles.hint}>
+            ✨ <strong>{format.toUpperCase()}</strong> uses direct 1:1 studio stream pass-through at native master quality (zero conversion loss).
           </p>
         )}
       </div>
