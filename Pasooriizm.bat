@@ -3,6 +3,12 @@ chcp 65001 >nul
 title Pasooriizm - Spotify Playlist Downloader
 color 0A
 
+:: Ensure working directory
+cd /d "%~dp0"
+
+:: Refresh PATH in case Node.js was recently installed
+set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
+
 echo.
 echo  ==============================================================
 echo  *                                                            *
@@ -15,7 +21,7 @@ echo.
 :: Check if setup has been run
 where node >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo  [ERROR] Node.js is not installed.
+    echo  [ERROR] Node.js is not installed or not found in PATH.
     echo  Please run setup.bat first!
     echo.
     pause
@@ -23,7 +29,15 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 if not exist "node_modules" (
-    echo  [ERROR] Dependencies not installed.
+    echo  [ERROR] Frontend dependencies not installed.
+    echo  Please run setup.bat first!
+    echo.
+    pause
+    exit /b 1
+)
+
+if not exist "worker\node_modules" (
+    echo  [ERROR] Worker dependencies not installed.
     echo  Please run setup.bat first!
     echo.
     pause

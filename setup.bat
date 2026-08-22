@@ -3,13 +3,20 @@ chcp 65001 >nul
 title Pasooriizm - Setup
 color 0A
 
+:: Ensure working directory is always this script's directory
+cd /d "%~dp0"
+
 :: ============================================================
-:: Auto-elevate to Administrator if not already elevated
+:: Check for Administrator privileges & Auto-elevate
 :: ============================================================
 net session >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo  Requesting Administrator privileges...
-    powershell -Command "Start-Process cmd.exe -ArgumentList '/c cd /d \"%~dp0\" && \"%~f0\"' -Verb RunAs"
+    echo.
+    echo  ==============================================================
+    echo  *  Administrator privileges required. Requesting access...   *
+    echo  ==============================================================
+    echo.
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k cd /d """%~dp0""" && """%~f0""" -elevated' -Verb RunAs"
     exit /b
 )
 
@@ -26,6 +33,9 @@ echo  Please wait while we set things up...
 echo.
 echo  --------------------------------------------------------------
 
+:: Ensure standard node installation paths are in current PATH
+set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
+
 :: ============================================================
 :: Step 1: Check / Install Node.js
 :: ============================================================
@@ -41,26 +51,46 @@ if %ERRORLEVEL% EQU 0 (
 echo         Node.js not found. Downloading installer...
 echo.
 
-powershell -Command "& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'Continue'; Write-Host '        Downloading Node.js v22.23.2 LTS...'; Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.23.2/node-v22.23.2-x64.msi' -OutFile \"$env:TEMP\node-installer.msi\" -UseBasicParsing; Write-Host '        Download complete.' }"
+where curl.exe >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    curl.exe -L --progress-bar -o "%TEMP%\node-installer.msi" "https://nodejs.org/dist/v22.23.2/node-v22.23.2-x64.msi"
+) else (
+    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://nodejs.org/dist/v22.23.2/node-v22.23.2-x64.msi', '%TEMP%\node-installer.msi')"
+)
 
 if exist "%TEMP%\node-installer.msi" (
-    echo         Running Node.js installer (please wait)...
-    msiexec /i "%TEMP%\node-installer.msi" /qn /norestart
+    echo.
+    echo         Installing Node.js (please wait)...
+    start /wait msiexec.exe /i "%TEMP%\node-installer.msi" /qn /norestart
+    
+    :: Refresh PATH
+    set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
+    
+    where node >nul 2>&1
     if %ERRORLEVEL% NEQ 0 (
-        echo         Silent install failed. Launching interactive installer...
-        msiexec /i "%TEMP%\node-installer.msi" /qb /norestart
+        echo         Silent install requires user confirmation. Launching setup window...
+        start /wait msiexec.exe /i "%TEMP%\node-installer.msi" /qb /norestart
+        set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
     )
-    set "PATH=%ProgramFiles%\nodejs;%PATH%"
+    
     del "%TEMP%\node-installer.msi" 2>nul
-    echo         Node.js installed successfully [OK]
+    
+    where node >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        for /f "tokens=1" %%v in ('node --version') do echo         Node.js %%v installed successfully [OK]
+    ) else (
+        echo         WARNING: Node.js installation finished. If next steps fail, please restart your computer.
+    )
 ) else (
     echo.
     echo  ==============================================================
     echo  *  ERROR: Could not download Node.js installer.              *
-    echo  *  Please install it manually: https://nodejs.org/           *
+    echo  *  Please manually install Node.js from:                     *
+    echo  *  https://nodejs.org/                                       *
     echo  ==============================================================
     echo.
-    pause
+    echo  Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
@@ -76,8 +106,6 @@ if not exist "worker\bin" mkdir "worker\bin"
 
 if exist "worker\bin\yt-dlp.exe" (
     echo         Found yt-dlp in worker\bin\ [OK]
-    echo         Checking for latest updates...
-    "worker\bin\yt-dlp.exe" -U >nul 2>&1
     goto :ytdlp_done
 )
 
@@ -88,10 +116,15 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 echo         Downloading yt-dlp...
-powershell -Command "& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'Continue'; Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' -OutFile 'worker\bin\yt-dlp.exe' -UseBasicParsing; Write-Host '        Download complete.' }"
+where curl.exe >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    curl.exe -L --progress-bar -o "worker\bin\yt-dlp.exe" "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+) else (
+    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', 'worker\bin\yt-dlp.exe')"
+)
 
 if exist "worker\bin\yt-dlp.exe" (
-    echo         yt-dlp downloaded successfully [OK]
+    echo         yt-dlp installed successfully [OK]
 ) else (
     echo         WARNING: Could not download yt-dlp.
 )
@@ -115,13 +148,22 @@ if %ERRORLEVEL% EQU 0 (
     goto :ffmpeg_done
 )
 
-echo         Downloading ffmpeg (this may take a few minutes)...
-powershell -Command "& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'Continue'; Invoke-WebRequest -Uri 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip' -OutFile \"$env:TEMP\ffmpeg.zip\" -UseBasicParsing; Write-Host '        Download complete.' }"
+echo         Downloading ffmpeg (this may take 1-2 minutes)...
+where curl.exe >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    curl.exe -L --progress-bar -o "%TEMP%\ffmpeg.zip" "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+) else (
+    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip', '%TEMP%\ffmpeg.zip')"
+)
 
 if exist "%TEMP%\ffmpeg.zip" (
     echo         Extracting ffmpeg binaries...
-    powershell -Command "& { Expand-Archive -Path '$env:TEMP\ffmpeg.zip' -DestinationPath '$env:TEMP\ffmpeg-extract' -Force; $ffDir = Get-ChildItem '$env:TEMP\ffmpeg-extract' -Directory | Select-Object -First 1; Copy-Item (Join-Path $ffDir.FullName 'bin\ffmpeg.exe') 'worker\bin\ffmpeg.exe' -Force; Copy-Item (Join-Path $ffDir.FullName 'bin\ffprobe.exe') 'worker\bin\ffprobe.exe' -Force; Remove-Item '$env:TEMP\ffmpeg.zip' -Force; Remove-Item '$env:TEMP\ffmpeg-extract' -Recurse -Force }"
-    echo         ffmpeg installed successfully [OK]
+    powershell -NoProfile -Command "Expand-Archive -Path '%TEMP%\ffmpeg.zip' -DestinationPath '%TEMP%\ffmpeg-extract' -Force; $d = (Get-ChildItem '%TEMP%\ffmpeg-extract' -Directory | Select-Object -First 1).FullName; Copy-Item (Join-Path $d 'bin\ffmpeg.exe') 'worker\bin\ffmpeg.exe' -Force; Copy-Item (Join-Path $d 'bin\ffprobe.exe') 'worker\bin\ffprobe.exe' -Force; Remove-Item '%TEMP%\ffmpeg.zip' -Force -ErrorAction SilentlyContinue; Remove-Item '%TEMP%\ffmpeg-extract' -Recurse -Force -ErrorAction SilentlyContinue"
+    if exist "worker\bin\ffmpeg.exe" (
+        echo         ffmpeg installed successfully [OK]
+    ) else (
+        echo         WARNING: Extraction failed for ffmpeg.
+    )
 ) else (
     echo         WARNING: Could not download ffmpeg archive.
 )
@@ -163,22 +205,24 @@ echo.
 echo  [6/7] Setting up environment configuration...
 
 if not exist ".env.local" (
-    copy ".env.example" ".env.local" >nul 2>&1
-    if exist ".env.local" (
+    if exist ".env.example" (
+        copy ".env.example" ".env.local" >nul 2>&1
         echo         Created .env.local from template [OK]
     ) else (
-        echo         WARNING: Could not create .env.local
+        echo NEXT_PUBLIC_WORKER_API_URL=http://localhost:3001 > ".env.local"
+        echo         Created .env.local [OK]
     )
 ) else (
     echo         .env.local already exists [OK]
 )
 
 if not exist "worker\.env" (
-    copy "worker\.env.example" "worker\.env" >nul 2>&1
-    if exist "worker\.env" (
+    if exist "worker\.env.example" (
+        copy "worker\.env.example" "worker\.env" >nul 2>&1
         echo         Created worker\.env from template [OK]
     ) else (
-        echo         WARNING: Could not create worker\.env
+        echo PORT=3001 > "worker\.env"
+        echo         Created worker\.env [OK]
     )
 ) else (
     echo         worker\.env already exists [OK]
@@ -266,11 +310,12 @@ if "%VERIFY_OK%"=="1" (
 ) else (
     echo  ==============================================================
     echo  *                                                            *
-    echo  *               SETUP COMPLETE (with warnings)               *
+    echo  *               SETUP FINISHED (with warnings)               *
     echo  *                                                            *
-    echo  *  Some components may be missing. Review the output above.  *
+    echo  *  Review the warnings above before launching.               *
     echo  *                                                            *
     echo  ==============================================================
 )
 echo.
-pause
+echo  Press any key to close this window...
+pause >nul
