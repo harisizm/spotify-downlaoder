@@ -17,6 +17,26 @@ export interface StreamAudioOptions {
 const PROCESS_TIMEOUT_MS = 60_000; // 60s timeout
 
 /**
+ * Determine the directory containing ffmpeg binaries across any working directory
+ */
+function getFfmpegLocation(): string | undefined {
+  const candidates = [
+    path.resolve(process.cwd(), "worker", "bin"),
+    path.resolve(process.cwd(), "bin"),
+    path.resolve(process.cwd(), "worker", "bin", "ffmpeg.exe"),
+    path.resolve(process.cwd(), "bin", "ffmpeg.exe"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return fs.statSync(candidate).isDirectory() ? candidate : path.dirname(candidate);
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Determine the executable path for yt-dlp across any working directory
  */
 function getYtDlpPath(): string {
@@ -147,6 +167,7 @@ export function streamAudioFromYouTube({
       const ext = format === "mp3" ? "mp3" : "wav";
       const expectedOutput = `${tempBasePath}.${ext}`;
 
+      const ffmpegLocation = getFfmpegLocation();
       const ytdlpArgs = [
         "--js-runtimes", nodeRuntimeArg,
         "--extractor-args", "youtube:player_client=android,ios,mweb",
@@ -164,6 +185,7 @@ export function streamAudioFromYouTube({
         "--audio-format", ext,
         "--audio-quality", format === "wav" ? "0" : `${quality}k`,
         "--postprocessor-args", "ExtractAudio:-threads 0",
+        ...(ffmpegLocation ? ["--ffmpeg-location", ffmpegLocation] : []),
         "-o", `${tempBasePath}.%(ext)s`,
         youtubeUrl,
       ];

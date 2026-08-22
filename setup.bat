@@ -20,7 +20,7 @@ echo.
 echo  --------------------------------------------------------------
 
 :: Ensure project portable bin and standard Node.js paths are in PATH
-set "PATH=%~dp0bin\node;%SystemRoot%\System32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0;%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
+set "PATH=%~dp0bin\node;%~dp0worker\bin;%SystemRoot%\System32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0;%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
 
 :: ============================================================
 :: Step 1: Check / Install Node.js
@@ -175,10 +175,8 @@ if %ERRORLEVEL% NEQ 0 (
     powershell -NoProfile -Command "Expand-Archive -Path '%TEMP%\ffmpeg.zip' -DestinationPath '%TEMP%\ffmpeg-extract' -Force"
 )
 
-for /d %%D in ("%TEMP%\ffmpeg-extract\ffmpeg-*") do (
-    if exist "%%D\bin\ffmpeg.exe" copy /y "%%D\bin\ffmpeg.exe" "%~dp0worker\bin\ffmpeg.exe" >nul 2>&1
-    if exist "%%D\bin\ffprobe.exe" copy /y "%%D\bin\ffprobe.exe" "%~dp0worker\bin\ffprobe.exe" >nul 2>&1
-)
+for /r "%TEMP%\ffmpeg-extract" %%F in (ffmpeg.exe) do if exist "%%F" copy /y "%%F" "%~dp0worker\bin\ffmpeg.exe" >nul 2>&1
+for /r "%TEMP%\ffmpeg-extract" %%F in (ffprobe.exe) do if exist "%%F" copy /y "%%F" "%~dp0worker\bin\ffprobe.exe" >nul 2>&1
 
 rd /s /q "%TEMP%\ffmpeg-extract" >nul 2>&1
 del /f /q "%TEMP%\ffmpeg.zip" >nul 2>&1
@@ -325,6 +323,12 @@ if exist ".env.local" (
     echo         .env.local [OK]
 ) else (
     echo         .env.local [MISSING]
+)
+
+if exist "worker\.env" (
+    echo         worker\.env [OK]
+) else (
+    echo         worker\.env [MISSING]
 )
 
 :: ============================================================
