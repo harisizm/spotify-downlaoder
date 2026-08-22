@@ -276,7 +276,7 @@ if %ERRORLEVEL% EQU 0 (
     for /f "tokens=1" %%v in ('node --version') do echo         Node.js %%v [OK]
 ) else (
     if exist "%~dp0bin\node\node.exe" (
-        for /f "tokens=1" %%v in ('"%~dp0bin\node\node.exe" --version') do echo         Node.js %%v (portable) [OK]
+        for /f "tokens=1" %%v in ('"%~dp0bin\node\node.exe" --version') do echo         Node.js %%v [portable] [OK]
     ) else (
         echo         Node.js [MISSING]
         set "VERIFY_OK=0"
@@ -288,7 +288,7 @@ if exist "worker\bin\yt-dlp.exe" (
 ) else (
     where yt-dlp >nul 2>&1
     if %ERRORLEVEL% EQU 0 (
-        echo         yt-dlp (system) [OK]
+        echo         yt-dlp [system] [OK]
     ) else (
         echo         yt-dlp [MISSING]
         set "VERIFY_OK=0"
@@ -300,7 +300,7 @@ if exist "worker\bin\ffmpeg.exe" (
 ) else (
     where ffmpeg >nul 2>&1
     if %ERRORLEVEL% EQU 0 (
-        echo         ffmpeg (system) [OK]
+        echo         ffmpeg [system] [OK]
     ) else (
         echo         ffmpeg [MISSING]
         set "VERIFY_OK=0"
@@ -349,7 +349,7 @@ if "%VERIFY_OK%"=="1" (
 ) else (
     echo  ==============================================================
     echo  *                                                            *
-    echo  *               SETUP FINISHED (with warnings)               *
+    echo  *               SETUP FINISHED [with warnings]               *
     echo  *                                                            *
     echo  *  Review the warnings above before launching.               *
     echo  *                                                            *
