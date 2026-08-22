@@ -6,20 +6,6 @@ color 0A
 :: Ensure working directory is always this script's directory
 cd /d "%~dp0"
 
-:: ============================================================
-:: Check for Administrator privileges & Auto-elevate
-:: ============================================================
-net session >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo  ==============================================================
-    echo  *  Administrator privileges required. Requesting access...   *
-    echo  ==============================================================
-    echo.
-    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k cd /d """%~dp0""" && """%~f0""" -elevated' -Verb RunAs"
-    exit /b
-)
-
 echo.
 echo  ==============================================================
 echo  *                                                            *
@@ -33,8 +19,8 @@ echo  Please wait while we set things up...
 echo.
 echo  --------------------------------------------------------------
 
-:: Ensure standard node installation paths are in current PATH
-set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
+:: Ensure project portable bin and standard Node.js paths are in PATH
+set "PATH=%~dp0bin\node;%SystemRoot%\System32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0;%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
 
 :: ============================================================
 :: Step 1: Check / Install Node.js
@@ -42,57 +28,74 @@ set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
 echo.
 echo  [1/7] Checking for Node.js...
 
-where node >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    for /f "tokens=1" %%v in ('node --version') do echo         Found Node.js %%v [OK]
-    goto :node_done
-)
+if exist "%~dp0bin\node\node.exe" goto :node_found_portable
 
-echo         Node.js not found. Downloading installer...
+where node >nul 2>&1
+if %ERRORLEVEL% EQU 0 goto :node_found_system
+
+echo         Node.js not found. Downloading standalone package...
 echo.
 
+if not exist "%~dp0bin\node" mkdir "%~dp0bin\node"
+
 where curl.exe >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    curl.exe -L --progress-bar -o "%TEMP%\node-installer.msi" "https://nodejs.org/dist/v22.23.2/node-v22.23.2-x64.msi"
-) else (
-    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://nodejs.org/dist/v22.23.2/node-v22.23.2-x64.msi', '%TEMP%\node-installer.msi')"
+if %ERRORLEVEL% EQU 0 goto :download_node_curl
+
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://nodejs.org/dist/v22.23.2/node-v22.23.2-win-x64.zip', '%TEMP%\node-dist.zip')"
+goto :extract_node
+
+:download_node_curl
+curl.exe -L --progress-bar -o "%TEMP%\node-dist.zip" "https://nodejs.org/dist/v22.23.2/node-v22.23.2-win-x64.zip"
+
+:extract_node
+if not exist "%TEMP%\node-dist.zip" goto :node_fail
+
+echo.
+echo         Extracting Node.js (please wait)...
+
+if exist "%TEMP%\node-extract" rd /s /q "%TEMP%\node-extract" >nul 2>&1
+mkdir "%TEMP%\node-extract"
+
+tar.exe -xf "%TEMP%\node-dist.zip" -C "%TEMP%\node-extract" 2>nul
+if %ERRORLEVEL% NEQ 0 (
+    powershell -NoProfile -Command "Expand-Archive -Path '%TEMP%\node-dist.zip' -DestinationPath '%TEMP%\node-extract' -Force"
 )
 
-if exist "%TEMP%\node-installer.msi" (
-    echo.
-    echo         Installing Node.js (please wait)...
-    start /wait msiexec.exe /i "%TEMP%\node-installer.msi" /qn /norestart
-    
-    :: Refresh PATH
-    set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
-    
-    where node >nul 2>&1
-    if %ERRORLEVEL% NEQ 0 (
-        echo         Silent install requires user confirmation. Launching setup window...
-        start /wait msiexec.exe /i "%TEMP%\node-installer.msi" /qb /norestart
-        set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
-    )
-    
-    del "%TEMP%\node-installer.msi" 2>nul
-    
-    where node >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        for /f "tokens=1" %%v in ('node --version') do echo         Node.js %%v installed successfully [OK]
-    ) else (
-        echo         WARNING: Node.js installation finished. If next steps fail, please restart your computer.
-    )
-) else (
-    echo.
-    echo  ==============================================================
-    echo  *  ERROR: Could not download Node.js installer.              *
-    echo  *  Please manually install Node.js from:                     *
-    echo  *  https://nodejs.org/                                       *
-    echo  ==============================================================
-    echo.
-    echo  Press any key to exit...
-    pause >nul
-    exit /b 1
+for /d %%D in ("%TEMP%\node-extract\node-v*") do (
+    robocopy "%%D" "%~dp0bin\node" /E /MOVE /NFL /NDL /NJH /NJS >nul 2>&1
 )
+
+rd /s /q "%TEMP%\node-extract" >nul 2>&1
+del /f /q "%TEMP%\node-dist.zip" >nul 2>&1
+
+set "PATH=%~dp0bin\node;%PATH%"
+
+if exist "%~dp0bin\node\node.exe" goto :node_ready
+where node >nul 2>&1
+if %ERRORLEVEL% EQU 0 goto :node_ready
+
+:node_fail
+echo.
+echo  ==============================================================
+echo  *  ERROR: Could not setup Node.js automatically.             *
+echo  *  Please manually install Node.js from:                     *
+echo  *  https://nodejs.org/                                       *
+echo  ==============================================================
+echo.
+echo  Press any key to exit...
+pause >nul
+exit /b 1
+
+:node_found_portable
+for /f "tokens=1" %%v in ('"%~dp0bin\node\node.exe" --version') do echo         Found standalone Node.js %%v [OK]
+goto :node_done
+
+:node_found_system
+for /f "tokens=1" %%v in ('node --version') do echo         Found system Node.js %%v [OK]
+goto :node_done
+
+:node_ready
+for /f "tokens=1" %%v in ('"%~dp0bin\node\node.exe" --version 2^>nul') do echo         Node.js %%v ready [OK]
 
 :node_done
 
@@ -102,32 +105,37 @@ if exist "%TEMP%\node-installer.msi" (
 echo.
 echo  [2/7] Checking for yt-dlp...
 
-if not exist "worker\bin" mkdir "worker\bin"
+if not exist "%~dp0worker\bin" mkdir "%~dp0worker\bin"
 
-if exist "worker\bin\yt-dlp.exe" (
-    echo         Found yt-dlp in worker\bin\ [OK]
-    goto :ytdlp_done
-)
+if exist "%~dp0worker\bin\yt-dlp.exe" goto :ytdlp_found_local
 
 where yt-dlp >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo         Found yt-dlp on system PATH [OK]
-    goto :ytdlp_done
-)
+if %ERRORLEVEL% EQU 0 goto :ytdlp_found_system
 
 echo         Downloading yt-dlp...
 where curl.exe >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    curl.exe -L --progress-bar -o "worker\bin\yt-dlp.exe" "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-) else (
-    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', 'worker\bin\yt-dlp.exe')"
-)
+if %ERRORLEVEL% EQU 0 goto :download_ytdlp_curl
 
-if exist "worker\bin\yt-dlp.exe" (
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', '%~dp0worker\bin\yt-dlp.exe')"
+goto :ytdlp_check
+
+:download_ytdlp_curl
+curl.exe -L --progress-bar -o "%~dp0worker\bin\yt-dlp.exe" "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+
+:ytdlp_check
+if exist "%~dp0worker\bin\yt-dlp.exe" (
     echo         yt-dlp installed successfully [OK]
 ) else (
     echo         WARNING: Could not download yt-dlp.
 )
+goto :ytdlp_done
+
+:ytdlp_found_local
+echo         Found yt-dlp in worker\bin\ [OK]
+goto :ytdlp_done
+
+:ytdlp_found_system
+echo         Found yt-dlp on system PATH [OK]
 
 :ytdlp_done
 
@@ -137,36 +145,57 @@ if exist "worker\bin\yt-dlp.exe" (
 echo.
 echo  [3/7] Checking for ffmpeg...
 
-if exist "worker\bin\ffmpeg.exe" (
-    echo         Found ffmpeg in worker\bin\ [OK]
-    goto :ffmpeg_done
-)
+if exist "%~dp0worker\bin\ffmpeg.exe" goto :ffmpeg_found_local
 
 where ffmpeg >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo         Found ffmpeg on system PATH [OK]
-    goto :ffmpeg_done
-)
+if %ERRORLEVEL% EQU 0 goto :ffmpeg_found_system
 
 echo         Downloading ffmpeg (this may take 1-2 minutes)...
 where curl.exe >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    curl.exe -L --progress-bar -o "%TEMP%\ffmpeg.zip" "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-) else (
-    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip', '%TEMP%\ffmpeg.zip')"
+if %ERRORLEVEL% EQU 0 goto :download_ffmpeg_curl
+
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip', '%TEMP%\ffmpeg.zip')"
+goto :extract_ffmpeg
+
+:download_ffmpeg_curl
+curl.exe -L --progress-bar -o "%TEMP%\ffmpeg.zip" "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+
+:extract_ffmpeg
+if not exist "%TEMP%\ffmpeg.zip" (
+    echo         WARNING: Could not download ffmpeg archive.
+    goto :ffmpeg_done
 )
 
-if exist "%TEMP%\ffmpeg.zip" (
-    echo         Extracting ffmpeg binaries...
-    powershell -NoProfile -Command "Expand-Archive -Path '%TEMP%\ffmpeg.zip' -DestinationPath '%TEMP%\ffmpeg-extract' -Force; $d = (Get-ChildItem '%TEMP%\ffmpeg-extract' -Directory | Select-Object -First 1).FullName; Copy-Item (Join-Path $d 'bin\ffmpeg.exe') 'worker\bin\ffmpeg.exe' -Force; Copy-Item (Join-Path $d 'bin\ffprobe.exe') 'worker\bin\ffprobe.exe' -Force; Remove-Item '%TEMP%\ffmpeg.zip' -Force -ErrorAction SilentlyContinue; Remove-Item '%TEMP%\ffmpeg-extract' -Recurse -Force -ErrorAction SilentlyContinue"
-    if exist "worker\bin\ffmpeg.exe" (
-        echo         ffmpeg installed successfully [OK]
-    ) else (
-        echo         WARNING: Extraction failed for ffmpeg.
-    )
-) else (
-    echo         WARNING: Could not download ffmpeg archive.
+echo         Extracting ffmpeg binaries...
+if exist "%TEMP%\ffmpeg-extract" rd /s /q "%TEMP%\ffmpeg-extract" >nul 2>&1
+mkdir "%TEMP%\ffmpeg-extract"
+
+tar.exe -xf "%TEMP%\ffmpeg.zip" -C "%TEMP%\ffmpeg-extract" 2>nul
+if %ERRORLEVEL% NEQ 0 (
+    powershell -NoProfile -Command "Expand-Archive -Path '%TEMP%\ffmpeg.zip' -DestinationPath '%TEMP%\ffmpeg-extract' -Force"
 )
+
+for /d %%D in ("%TEMP%\ffmpeg-extract\ffmpeg-*") do (
+    if exist "%%D\bin\ffmpeg.exe" copy /y "%%D\bin\ffmpeg.exe" "%~dp0worker\bin\ffmpeg.exe" >nul 2>&1
+    if exist "%%D\bin\ffprobe.exe" copy /y "%%D\bin\ffprobe.exe" "%~dp0worker\bin\ffprobe.exe" >nul 2>&1
+)
+
+rd /s /q "%TEMP%\ffmpeg-extract" >nul 2>&1
+del /f /q "%TEMP%\ffmpeg.zip" >nul 2>&1
+
+if exist "%~dp0worker\bin\ffmpeg.exe" (
+    echo         ffmpeg installed successfully [OK]
+) else (
+    echo         WARNING: Extraction failed for ffmpeg.
+)
+goto :ffmpeg_done
+
+:ffmpeg_found_local
+echo         Found ffmpeg in worker\bin\ [OK]
+goto :ffmpeg_done
+
+:ffmpeg_found_system
+echo         Found ffmpeg on system PATH [OK]
 
 :ffmpeg_done
 
@@ -176,11 +205,14 @@ if exist "%TEMP%\ffmpeg.zip" (
 echo.
 echo  [4/7] Installing frontend dependencies (npm install)...
 call npm install --no-audit --no-fund
-if %ERRORLEVEL% EQU 0 (
+if %ERRORLEVEL% NEQ 0 (
+    echo         Retrying frontend dependencies...
+    call npm install
+)
+if exist "node_modules" (
     echo         Frontend dependencies installed [OK]
 ) else (
-    echo         WARNING: Retrying frontend dependencies...
-    call npm install
+    echo         WARNING: Frontend dependencies might have encountered issues.
 )
 
 :: ============================================================
@@ -190,11 +222,14 @@ echo.
 echo  [5/7] Installing worker backend dependencies...
 pushd worker
 call npm install --no-audit --no-fund
-if %ERRORLEVEL% EQU 0 (
+if %ERRORLEVEL% NEQ 0 (
+    echo         Retrying worker dependencies...
+    call npm install
+)
+if exist "node_modules" (
     echo         Worker dependencies installed [OK]
 ) else (
-    echo         WARNING: Retrying worker dependencies...
-    call npm install
+    echo         WARNING: Worker dependencies might have encountered issues.
 )
 popd
 
@@ -240,8 +275,12 @@ where node >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     for /f "tokens=1" %%v in ('node --version') do echo         Node.js %%v [OK]
 ) else (
-    echo         Node.js [MISSING]
-    set "VERIFY_OK=0"
+    if exist "%~dp0bin\node\node.exe" (
+        for /f "tokens=1" %%v in ('"%~dp0bin\node\node.exe" --version') do echo         Node.js %%v (portable) [OK]
+    ) else (
+        echo         Node.js [MISSING]
+        set "VERIFY_OK=0"
+    )
 )
 
 if exist "worker\bin\yt-dlp.exe" (

@@ -6,8 +6,8 @@ color 0A
 :: Ensure working directory
 cd /d "%~dp0"
 
-:: Refresh PATH in case Node.js was recently installed
-set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
+:: Refresh PATH in case Node.js is portable or recently installed
+set "PATH=%~dp0bin\node;%SystemRoot%\System32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0;%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
 
 echo.
 echo  ==============================================================
@@ -21,11 +21,13 @@ echo.
 :: Check if setup has been run
 where node >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo  [ERROR] Node.js is not installed or not found in PATH.
-    echo  Please run setup.bat first!
-    echo.
-    pause
-    exit /b 1
+    if not exist "%~dp0bin\node\node.exe" (
+        echo  [ERROR] Node.js is not installed or not found in PATH.
+        echo  Please run setup.bat first!
+        echo.
+        pause
+        exit /b 1
+    )
 )
 
 if not exist "node_modules" (
