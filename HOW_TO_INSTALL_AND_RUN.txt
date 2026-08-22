@@ -1,0 +1,23 @@
+==============================================================
+  PASOORIIZM — HOW TO INSTALL & RUN (STEP-BY-STEP)
+==============================================================
+
+--- ONE-TIME SETUP ---
+
+1. Double-click "setup.bat" (Click "Yes" if Windows asks for Admin permission).
+2. Wait until you see "SETUP COMPLETE! [OK]" in the window.
+3. Press any key to close the setup window.
+
+
+--- HOW TO RUN THE APP ---
+
+1. Double-click "Pasooriizm.bat".
+2. The app will open in your web browser automatically at http://localhost:3000.
+3. Paste any Spotify playlist/song link and click Download.
+4. When finished, press any key inside the "Pasooriizm.bat" window to stop the app.
+
+
+--- TROUBLESHOOTING ---
+
+- If setup asks for Admin permission: Right-click "setup.bat" -> "Run as administrator".
+- If the browser doesn't open automatically: Manually open http://localhost:3000.
