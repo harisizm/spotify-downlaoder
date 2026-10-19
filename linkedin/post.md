@@ -1,0 +1,22 @@
+# LinkedIn post — Pasooriizm
+
+Attach `pasooriizm-walkthrough-1080p.mp4` from this folder.
+
+---
+
+Paste a 5,000-song Spotify playlist. Walk away. Come back to a ZIP.
+
+That's Pasooriizm. No 100-song cap, no ads, no 128kbps "HD".
+
+• No track limit. 50 songs or 5,000, the full playlist, album, or track list, with no Spotify account or API key needed.
+• Real quality. 320kbps MP3, native M4A/AAC, OPUS, or lossless WAV. No "HD" that turns out to be 128kbps.
+• A queue that actually works. 5 songs download in parallel while the next 10 are searched in the background. Per-song retry, pause, resume, and save-what's-done-so-far if you need to leave early.
+• Fast. 10+ songs per minute, measured. A 324-track playlist in about 25 minutes, with a live ETA that doesn't jump around.
+• Survives rate limits. Searches rotate across multiple YouTube clients, so one 429 doesn't kill the run.
+• No ads, no pop-ups, no paywall. It runs on your own machine.
+• Neat output. One ZIP, every file numbered and named: 01. Atif Aslam - Aadat.mp3
+• Two double-clicks to set up. setup.bat installs everything once. Pasooriizm.bat launches it.
+
+Repo: https://github.com/harisizm/spotify-downlaoder
+
+Walkthrough in the video.
